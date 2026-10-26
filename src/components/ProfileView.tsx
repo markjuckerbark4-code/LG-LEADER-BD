@@ -22,7 +22,7 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWithdraw }) => {
-  const { user, topPlayers, updateProfile } = useTournament();
+  const { user, topPlayers, settings, updateProfile } = useTournament();
 
   const [activeModal, setActiveModal] = useState<
     'rules' | 'topPlayers' | 'developer' | 'editProfile' | null
@@ -244,42 +244,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
 
             <div className="flex items-center gap-2 mb-3">
               <CheckSquare className="w-5 h-5 text-emerald-400" />
-              <h3 className="font-black text-base text-white">LG LEADER BD টুর্নামেন্ট রুলস</h3>
+              <h3 className="font-black text-base text-white">{settings.siteName} টুর্নামেন্ট রুলস</h3>
             </div>
 
             <div className="space-y-2.5 text-xs text-slate-300 max-h-80 overflow-y-auto pr-1">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <h4 className="font-bold text-amber-400 mb-1">১. এমুলেটর ও পিসি ব্যান</h4>
-                <p>
-                  শুধুমাত্র রিয়েল মোবাইল ইউজাররা টুর্নামেন্টে খেলতে পারবেন। Bluestacks, LDPlayer বা
-                  যেকোনো পিসি এমুলেটর ধরা পড়লে কোনো প্রাইজ দেওয়া হবে না এবং অ্যাকাউন্ট স্থায়ী ব্যান
-                  হবে।
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <h4 className="font-bold text-amber-400 mb-1">২. হ্যাক, স্ক্রিপ্ট ও কনফিগ ফাইল</h4>
-                <p>
-                  যেকোনো প্রকার হেডশট কনফিগ, অটো এম, গ্লিচ বা হ্যাক ব্যবহারকারীকে রিপোর্ট করা হলে তার
-                  উইনিং বাতিল করা হবে।
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <h4 className="font-bold text-amber-400 mb-1">৩. রুম আইডি ও পাসওয়ার্ড</h4>
-                <p>
-                  ম্যাচ শুরু হওয়ার ঠিক ১০ মিনিট আগে অ্যাপের My Matches সেকশনে রুম আইডি ও পাসওয়ার্ড প্রকাশ
-                  করা হবে। অন্যদের সাথে আইডি পাসওয়ার্ড শেয়ার করা দণ্ডনীয় অপরাধ।
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <h4 className="font-bold text-amber-400 mb-1">৪. প্রাইজ ডিস্ট্রিবিউশন</h4>
-                <p>
-                  ম্যাচ শেষ হওয়ার পর ফলাফল এডমিন যাচাই করে ৫ থেকে ১৫ মিনিটের মধ্যে উইনারদের প্রোফাইল
-                  ওয়ালেটে প্রাইজ মানি যুক্ত করে দেয়।
-                </p>
-              </div>
+              {settings.rules && settings.rules.length > 0 ? (
+                settings.rules.map((rule, idx) => (
+                  <div key={idx} className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                    <h4 className="font-bold text-amber-400 mb-1">নিয়ম #{idx + 1}</h4>
+                    <p>{rule}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-slate-500 text-center py-4">কোনো রুলস যোগ করা হয়নি।</p>
+              )}
             </div>
           </div>
         </div>
@@ -343,28 +321,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
               <Code2 className="w-8 h-8" />
             </div>
 
-            <h3 className="text-lg font-black text-white">LG LEADER BD Official</h3>
-            <p className="text-xs text-sky-400 font-semibold mt-0.5">eSports & Tournament Platform</p>
+            <h3 className="text-lg font-black text-white">{settings.siteName} Official</h3>
+            <p className="text-xs text-sky-400 font-semibold mt-0.5">{settings.logoText}</p>
             <p className="text-xs text-slate-400 mt-2 px-2">
-              LG LEADER BD হলো বাংলাদেশের অন্যতম বিশ্বস্ত ফ্রি ফায়ার কাস্টম টুর্নামেন্ট ও ডায়মন্ড টপআপ প্ল্যাটফর্ম।
+              {settings.siteName} হলো বাংলাদেশের বিশ্বস্ত ফ্রি ফায়ার কাস্টম টুর্নামেন্ট ও ডায়মন্ড টপআপ প্ল্যাটফর্ম।
             </p>
 
             <div className="mt-4 p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs text-left space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-400">Developer & Owner:</span>
-                <span className="font-bold text-white">LG LEADER BD Team</span>
+                <span className="text-slate-400">Developer & Management:</span>
+                <span className="font-bold text-white">{settings.siteName} Team</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Official Helpline:</span>
-                <span className="font-mono text-amber-300">01812-345678</span>
+                <span className="font-mono text-amber-300">{settings.helplinePhone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">WhatsApp:</span>
+                <span className="font-mono text-emerald-400">{settings.whatsappNumber}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Telegram Channel:</span>
-                <span className="text-sky-400 font-semibold">@LG_LEADER_BD</span>
+                <span className="text-sky-400 font-semibold">{settings.telegramUsername}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">System Version:</span>
-                <span className="text-emerald-400 font-mono">v3.4.0 (Live)</span>
+                <span className="text-slate-400">Support Email:</span>
+                <span className="text-slate-300 font-mono text-[11px]">{settings.supportEmail}</span>
               </div>
             </div>
           </div>

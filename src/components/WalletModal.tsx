@@ -9,8 +9,14 @@ interface WalletModalProps {
 }
 
 export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 'deposit' }) => {
-  const { user, transactions, submitDeposit, submitWithdraw } = useTournament();
+  const { user, transactions, settings, submitDeposit, submitWithdraw } = useTournament();
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'history'>(defaultTab);
+
+  const paymentNumbersMap = {
+    bKash: `${settings.bKashNumber} (${settings.bKashNote || 'Personal - Send Money'})`,
+    Nagad: `${settings.nagadNumber} (${settings.nagadNote || 'Personal - Send Money'})`,
+    Rocket: `${settings.rocketNumber} (${settings.rocketNote || 'Personal - Send Money'})`,
+  };
 
   // Deposit Form State
   const [depositMethod, setDepositMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
@@ -194,10 +200,10 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
                 নিচের নাম্বারে <span className="text-amber-400 font-bold">Send Money</span> করুন:
               </div>
               <div className="flex items-center justify-between font-mono font-bold text-amber-300 bg-black/50 p-2 rounded-lg">
-                <span className="truncate">{PAYMENT_NUMBERS[depositMethod]}</span>
+                <span className="truncate">{paymentNumbersMap[depositMethod]}</span>
                 <button
                   type="button"
-                  onClick={() => handleCopyNumber(PAYMENT_NUMBERS[depositMethod], 'dep-num')}
+                  onClick={() => handleCopyNumber(paymentNumbersMap[depositMethod], 'dep-num')}
                   className="p-1 hover:bg-slate-800 rounded text-slate-300 ml-2 shrink-0"
                   title="Copy Number"
                 >

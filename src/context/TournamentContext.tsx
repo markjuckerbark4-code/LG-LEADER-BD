@@ -6,6 +6,8 @@ import {
   Transaction,
   DiamondPackage,
   TopPlayer,
+  WebsiteSettings,
+  MatchResultEntry,
 } from '../types';
 import {
   INITIAL_CATEGORIES,
@@ -14,46 +16,81 @@ import {
   INITIAL_TRANSACTIONS,
   INITIAL_DIAMONDS,
   INITIAL_TOP_PLAYERS,
-  INITIAL_NOTICE,
+  INITIAL_SETTINGS,
+  INITIAL_PLAYERS,
 } from '../data/initialData';
 
 interface TournamentContextType {
   categories: GameCategory[];
   matches: TournamentMatch[];
   user: UserProfile;
+  players: UserProfile[];
   transactions: Transaction[];
   diamondPackages: DiamondPackage[];
   topPlayers: TopPlayer[];
-  notice: string;
+  settings: WebsiteSettings;
   selectedCategory: GameCategory | null;
   setSelectedCategory: (cat: GameCategory | null) => void;
+
   // User Actions
   joinMatch: (matchId: string, gamerName: string, uid: string) => { success: boolean; message: string };
   submitDeposit: (method: 'bKash' | 'Nagad' | 'Rocket', amount: number, trxId: string, phone: string) => { success: boolean; message: string };
   submitWithdraw: (method: 'bKash' | 'Nagad' | 'Rocket', amount: number, phone: string) => { success: boolean; message: string };
   buyDiamondTopup: (pkg: DiamondPackage, playerUid: string, method: 'bKash' | 'Nagad' | 'Rocket', trxId: string, phone: string) => { success: boolean; message: string };
   updateProfile: (data: Partial<UserProfile>) => void;
-  // Admin Actions
+
+  // Module 1: Tournament Control
   createMatch: (match: Omit<TournamentMatch, 'id' | 'joinedPlayers' | 'status'>) => void;
-  updateMatchRoom: (matchId: string, roomId: string, roomPassword: string) => void;
-  completeMatch: (matchId: string, winnerName: string, winnerUid: string, winnerPrize: number, kills: number) => void;
+  editMatch: (matchId: string, updated: Partial<TournamentMatch>) => void;
+  cancelMatch: (matchId: string, reason: string) => void;
   deleteMatch: (matchId: string) => void;
+  archiveMatch: (matchId: string) => void;
+
+  // Module 2: Player Management
+  updatePlayerStatus: (playerId: string, status: 'active' | 'banned') => void;
+  adjustPlayerBalance: (playerId: string, depositDelta: number, winningDelta: number) => void;
+
+  // Module 3: bKash / Nagad Payment
   approveDeposit: (txId: string) => void;
   rejectDeposit: (txId: string, reason?: string) => void;
   approveWithdraw: (txId: string) => void;
   rejectWithdraw: (txId: string, reason?: string) => void;
-  updateNotice: (text: string) => void;
+
+  // Module 4: Room ID & Password
+  setRoomDetailsWithTiming: (
+    matchId: string,
+    roomId: string,
+    roomPassword: string,
+    timing: 'now' | '10min' | '15min' | 'hidden',
+    isVisible: boolean
+  ) => void;
+
+  // Module 5: Result Management
+  publishResults: (
+    matchId: string,
+    results: MatchResultEntry[],
+    booyahWinnerName: string,
+    booyahWinnerUid: string,
+    booyahPrize: number,
+    totalKillsWinner: number
+  ) => void;
+
+  // Module 6: Website Settings
+  updateSettings: (newSettings: Partial<WebsiteSettings>) => void;
+
+  // Utility
   resetAllData: () => void;
 }
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  CATEGORIES: 'lg_leader_categories_v1',
-  MATCHES: 'lg_leader_matches_v1',
-  USER: 'lg_leader_user_v1',
-  TRANSACTIONS: 'lg_leader_transactions_v1',
-  NOTICE: 'lg_leader_notice_v1',
+  CATEGORIES: 'lg_leader_categories_v2',
+  MATCHES: 'lg_leader_matches_v2',
+  USER: 'lg_leader_user_v2',
+  PLAYERS: 'lg_leader_players_v2',
+  TRANSACTIONS: 'lg_leader_transactions_v2',
+  SETTINGS: 'lg_leader_settings_v2',
 };
 
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -72,14 +109,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return saved ? JSON.parse(saved) : INITIAL_USER;
   });
 
+  const [players, setPlayers] = useState<UserProfile[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PLAYERS);
+    return saved ? JSON.parse(saved) : INITIAL_PLAYERS;
+  });
+
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
     return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
   });
 
-  const [notice, setNotice] = useState<string>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.NOTICE);
-    return saved ? saved : INITIAL_NOTICE;
+  const [settings, setSettings] = useState<WebsiteSettings>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
 
   const [selectedCategory, setSelectedCategory] = useState<GameCategory | null>(null);
@@ -100,18 +142,24 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [user]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(players));
+  }, [players]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
   }, [transactions]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.NOTICE, notice);
-  }, [notice]);
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  }, [settings]);
 
-  // Recalculate match counts for categories dynamically
+  // Sync matches count with categories
   useEffect(() => {
     setCategories((prev) =>
       prev.map((cat) => {
-        const count = matches.filter((m) => m.categoryId === cat.id && m.status !== 'cancelled').length;
+        const count = matches.filter(
+          (m) => m.categoryId === cat.id && m.status !== 'cancelled' && m.status !== 'archived'
+        ).length;
         return {
           ...cat,
           matchCount: count,
@@ -161,7 +209,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       newWinning -= feeRemaining;
     }
 
-    // Add entry
     const newEntry = {
       userId: user.id,
       gamerName: gamerName || user.username,
@@ -181,6 +228,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       matchesJoined: prev.matchesJoined + 1,
       freeFireUid: uid || prev.freeFireUid,
     }));
+
+    // Update in players directory
+    setPlayers((prev) =>
+      prev.map((p) =>
+        p.id === user.id
+          ? {
+              ...p,
+              depositBalance: newDeposit,
+              winningBalance: newWinning,
+              matchesJoined: p.matchesJoined + 1,
+              freeFireUid: uid || p.freeFireUid,
+            }
+          : p
+      )
+    );
 
     if (match.entryFee > 0) {
       const tx: Transaction = {
@@ -222,6 +284,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       phone: phone.trim(),
       status: 'pending',
       date: new Date().toLocaleString(),
+      evidenceNote: `User submitted from phone: ${phone}, Method: ${method}`,
     };
 
     setTransactions((prev) => [tx, ...prev]);
@@ -246,11 +309,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'সঠিক বিকাশ/নগদ নাম্বার দিন।' };
     }
 
-    // Reserve balance
     setUser((prev) => ({
       ...prev,
       winningBalance: prev.winningBalance - amount,
     }));
+
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === user.id ? { ...p, winningBalance: p.winningBalance - amount } : p))
+    );
 
     const tx: Transaction = {
       id: `tx-${Date.now()}`,
@@ -311,21 +377,155 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // USER ACTION: Update Profile
   const updateProfile = (data: Partial<UserProfile>) => {
     setUser((prev) => ({ ...prev, ...data }));
+    setPlayers((prev) => prev.map((p) => (p.id === user.id ? { ...p, ...data } : p)));
   };
 
-  // ADMIN ACTION: Create Tournament Match
+  // ADMIN MODULE 1: TOURNAMENT CONTROL
   const createMatch = (matchData: Omit<TournamentMatch, 'id' | 'joinedPlayers' | 'status'>) => {
     const newMatch: TournamentMatch = {
       ...matchData,
       id: `match-${Date.now()}`,
       joinedPlayers: [],
       status: 'upcoming',
+      roomReleaseTiming: '10min',
+      isRoomVisibleToPlayers: false,
     };
     setMatches((prev) => [newMatch, ...prev]);
   };
 
-  // ADMIN ACTION: Set Room ID & Password
-  const updateMatchRoom = (matchId: string, roomId: string, roomPassword: string) => {
+  const editMatch = (matchId: string, updated: Partial<TournamentMatch>) => {
+    setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, ...updated } : m)));
+  };
+
+  const cancelMatch = (matchId: string, reason: string) => {
+    setMatches((prev) =>
+      prev.map((m) => {
+        if (m.id === matchId) {
+          // Refund joined players automatically if entry fee > 0
+          if (m.entryFee > 0 && m.joinedPlayers.length > 0) {
+            m.joinedPlayers.forEach((player) => {
+              if (player.userId === user.id) {
+                setUser((u) => ({ ...u, depositBalance: u.depositBalance + m.entryFee }));
+              }
+              setPlayers((ps) =>
+                ps.map((p) =>
+                  p.id === player.userId ? { ...p, depositBalance: p.depositBalance + m.entryFee } : p
+                )
+              );
+            });
+          }
+          return {
+            ...m,
+            status: 'cancelled',
+            cancelReason: reason || 'ম্যাচ বাতিল করা হয়েছে এবং এন্ট্রি ফি রিফান্ড করা হয়েছে।',
+          };
+        }
+        return m;
+      })
+    );
+  };
+
+  const deleteMatch = (matchId: string) => {
+    setMatches((prev) => prev.filter((m) => m.id !== matchId));
+  };
+
+  const archiveMatch = (matchId: string) => {
+    setMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? { ...m, status: 'archived' } : m))
+    );
+  };
+
+  // ADMIN MODULE 2: PLAYER MANAGEMENT
+  const updatePlayerStatus = (playerId: string, status: 'active' | 'banned') => {
+    setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, status } : p)));
+    if (playerId === user.id) {
+      setUser((prev) => ({ ...prev, status }));
+    }
+  };
+
+  const adjustPlayerBalance = (playerId: string, depositDelta: number, winningDelta: number) => {
+    setPlayers((prev) =>
+      prev.map((p) =>
+        p.id === playerId
+          ? {
+              ...p,
+              depositBalance: Math.max(0, p.depositBalance + depositDelta),
+              winningBalance: Math.max(0, p.winningBalance + winningDelta),
+            }
+          : p
+      )
+    );
+
+    if (playerId === user.id) {
+      setUser((prev) => ({
+        ...prev,
+        depositBalance: Math.max(0, prev.depositBalance + depositDelta),
+        winningBalance: Math.max(0, prev.winningBalance + winningDelta),
+      }));
+    }
+  };
+
+  // ADMIN MODULE 3: bKASH / NAGAD PAYMENT APPROVALS
+  const approveDeposit = (txId: string) => {
+    const tx = transactions.find((t) => t.id === txId);
+    if (!tx || tx.status !== 'pending') return;
+
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, status: 'approved', note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত' } : t))
+    );
+
+    // Credit to user deposit balance
+    if (tx.userId === user.id) {
+      setUser((prev) => ({
+        ...prev,
+        depositBalance: prev.depositBalance + tx.amount,
+      }));
+    }
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === tx.userId ? { ...p, depositBalance: p.depositBalance + tx.amount } : p))
+    );
+  };
+
+  const rejectDeposit = (txId: string, reason = 'ভুল TrxID বা অ্যাকাউন্টে টাকা ক্রেডিট হয়নি') => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, status: 'rejected', note: reason } : t))
+    );
+  };
+
+  const approveWithdraw = (txId: string) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, status: 'approved', note: 'টাকা বিকাশ/নগদ একাউন্টে সফলভাবে পাঠানো হয়েছে' } : t))
+    );
+  };
+
+  const rejectWithdraw = (txId: string, reason = 'নাম্বার অকার্যকর বা তথ্য অমিল থাকায় রিফান্ড করা হলো') => {
+    const tx = transactions.find((t) => t.id === txId);
+    if (!tx || tx.status !== 'pending') return;
+
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, status: 'rejected', note: reason } : t))
+    );
+
+    // Refund to user winning balance
+    if (tx.userId === user.id) {
+      setUser((prev) => ({
+        ...prev,
+        winningBalance: prev.winningBalance + tx.amount,
+      }));
+    }
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === tx.userId ? { ...p, winningBalance: p.winningBalance + tx.amount } : p))
+    );
+  };
+
+  // ADMIN MODULE 4: ROOM ID & PASSWORD (WITH RELEASE TIMING)
+  const setRoomDetailsWithTiming = (
+    matchId: string,
+    roomId: string,
+    roomPassword: string,
+    timing: 'now' | '10min' | '15min' | 'hidden',
+    isVisible: boolean
+  ) => {
     setMatches((prev) =>
       prev.map((m) =>
         m.id === matchId
@@ -333,20 +533,23 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               ...m,
               roomId: roomId.trim(),
               roomPassword: roomPassword.trim(),
-              status: roomId ? 'ongoing' : m.status,
+              roomReleaseTiming: timing,
+              isRoomVisibleToPlayers: isVisible,
+              status: isVisible && roomId ? 'ongoing' : m.status,
             }
           : m
       )
     );
   };
 
-  // ADMIN ACTION: Complete Match & Distribute Prize
-  const completeMatch = (
+  // ADMIN MODULE 5: RESULT MANAGEMENT (KILL, POSITION, POINTS, WINNER)
+  const publishResults = (
     matchId: string,
-    winnerName: string,
-    winnerUid: string,
-    winnerPrize: number,
-    kills: number
+    results: MatchResultEntry[],
+    booyahWinnerName: string,
+    booyahWinnerUid: string,
+    booyahPrize: number,
+    totalKillsWinner: number
   ) => {
     setMatches((prev) =>
       prev.map((m) =>
@@ -354,109 +557,75 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ? {
               ...m,
               status: 'completed',
-              winnerName,
-              winnerUid,
-              winnerPrize,
-              totalKillsWinner: kills,
+              winnerName: booyahWinnerName,
+              winnerUid: booyahWinnerUid,
+              winnerPrize: booyahPrize,
+              totalKillsWinner,
+              results,
             }
           : m
       )
     );
 
-    // If winner is current active user, credit winnings
-    if (winnerUid === user.freeFireUid || winnerName.toLowerCase() === user.username.toLowerCase()) {
-      setUser((prev) => ({
-        ...prev,
-        winningBalance: prev.winningBalance + winnerPrize,
-        totalWonBDT: prev.totalWonBDT + winnerPrize,
-        matchesWon: prev.matchesWon + 1,
-      }));
+    // Credit prizes to players in results
+    results.forEach((entry) => {
+      if (entry.prizeWon > 0) {
+        if (entry.uid === user.freeFireUid || entry.gamerName.toLowerCase() === user.username.toLowerCase()) {
+          setUser((u) => ({
+            ...u,
+            winningBalance: u.winningBalance + entry.prizeWon,
+            totalWonBDT: u.totalWonBDT + entry.prizeWon,
+            matchesWon: entry.position === 1 ? u.matchesWon + 1 : u.matchesWon,
+          }));
 
-      const tx: Transaction = {
-        id: `tx-${Date.now()}`,
-        userId: user.id,
-        userName: user.username,
-        type: 'match_prize',
-        amount: winnerPrize,
-        status: 'approved',
-        date: new Date().toLocaleString(),
-        note: `Tournament Prize Won: ৳${winnerPrize}`,
-      };
-      setTransactions((prev) => [tx, ...prev]);
-    }
+          const tx: Transaction = {
+            id: `tx-${Date.now()}-${entry.uid}`,
+            userId: user.id,
+            userName: user.username,
+            type: 'match_prize',
+            amount: entry.prizeWon,
+            status: 'approved',
+            date: new Date().toLocaleString(),
+            note: `Tournament Prize: Rank #${entry.position}, ${entry.kills} Kills (${entry.points} Pts)`,
+          };
+          setTransactions((prev) => [tx, ...prev]);
+        }
+
+        setPlayers((ps) =>
+          ps.map((p) =>
+            p.freeFireUid === entry.uid
+              ? {
+                  ...p,
+                  winningBalance: p.winningBalance + entry.prizeWon,
+                  totalWonBDT: p.totalWonBDT + entry.prizeWon,
+                  matchesWon: entry.position === 1 ? p.matchesWon + 1 : p.matchesWon,
+                }
+              : p
+          )
+        );
+      }
+    });
   };
 
-  // ADMIN ACTION: Delete Match
-  const deleteMatch = (matchId: string) => {
-    setMatches((prev) => prev.filter((m) => m.id !== matchId));
+  // ADMIN MODULE 6: WEBSITE SETTINGS
+  const updateSettings = (newSettings: Partial<WebsiteSettings>) => {
+    setSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
-  // ADMIN ACTION: Approve Deposit
-  const approveDeposit = (txId: string) => {
-    const tx = transactions.find((t) => t.id === txId);
-    if (!tx || tx.status !== 'pending') return;
-
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, status: 'approved' } : t))
-    );
-
-    // Credit to user deposit balance if matches
-    if (tx.userId === user.id) {
-      setUser((prev) => ({
-        ...prev,
-        depositBalance: prev.depositBalance + tx.amount,
-      }));
-    }
-  };
-
-  // ADMIN ACTION: Reject Deposit
-  const rejectDeposit = (txId: string, reason = 'ভুল TrxID বা টাকা আসেনি') => {
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, status: 'rejected', note: reason } : t))
-    );
-  };
-
-  // ADMIN ACTION: Approve Withdraw
-  const approveWithdraw = (txId: string) => {
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, status: 'approved', note: 'টাকা পাঠিয়ে দেওয়া হয়েছে' } : t))
-    );
-  };
-
-  // ADMIN ACTION: Reject Withdraw (Refunds to user winning balance)
-  const rejectWithdraw = (txId: string, reason = 'নাম্বার ভুল ছিল বা ট্রানজেকশন ফেইল্ড') => {
-    const tx = transactions.find((t) => t.id === txId);
-    if (!tx || tx.status !== 'pending') return;
-
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, status: 'rejected', note: reason } : t))
-    );
-
-    if (tx.userId === user.id) {
-      setUser((prev) => ({
-        ...prev,
-        winningBalance: prev.winningBalance + tx.amount,
-      }));
-    }
-  };
-
-  // ADMIN ACTION: Update Notice
-  const updateNotice = (text: string) => {
-    setNotice(text);
-  };
-
-  // Reset all data to defaults
+  // Reset demo data
   const resetAllData = () => {
     localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
     localStorage.removeItem(STORAGE_KEYS.MATCHES);
     localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.PLAYERS);
     localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
-    localStorage.removeItem(STORAGE_KEYS.NOTICE);
+    localStorage.removeItem(STORAGE_KEYS.SETTINGS);
     setCategories(INITIAL_CATEGORIES);
     setMatches(INITIAL_MATCHES);
     setUser(INITIAL_USER);
+    setPlayers(INITIAL_PLAYERS);
     setTransactions(INITIAL_TRANSACTIONS);
-    setNotice(INITIAL_NOTICE);
+    setSettings(INITIAL_SETTINGS);
   };
 
   return (
@@ -465,10 +634,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         categories,
         matches,
         user,
+        players,
         transactions,
         diamondPackages,
         topPlayers,
-        notice,
+        settings,
         selectedCategory,
         setSelectedCategory,
         joinMatch,
@@ -477,14 +647,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         buyDiamondTopup,
         updateProfile,
         createMatch,
-        updateMatchRoom,
-        completeMatch,
+        editMatch,
+        cancelMatch,
         deleteMatch,
+        archiveMatch,
+        updatePlayerStatus,
+        adjustPlayerBalance,
         approveDeposit,
         rejectDeposit,
         approveWithdraw,
         rejectWithdraw,
-        updateNotice,
+        setRoomDetailsWithTiming,
+        publishResults,
+        updateSettings,
         resetAllData,
       }}
     >

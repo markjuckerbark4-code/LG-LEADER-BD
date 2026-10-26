@@ -133,7 +133,7 @@ export const MyMatchesView: React.FC = () => {
                   </div>
 
                   {/* ROOM DETAILS BOX */}
-                  {match.roomId ? (
+                  {match.roomId && match.isRoomVisibleToPlayers !== false ? (
                     <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/60 mb-3">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300 mb-2">
                         <Key className="w-4 h-4 text-amber-400" />

@@ -15,6 +15,17 @@ export interface PlayerEntry {
   uid: string;
   slotNo: number;
   joinedAt: string;
+  teamName?: string;
+}
+
+export interface MatchResultEntry {
+  playerId: string;
+  gamerName: string;
+  uid: string;
+  position: number;
+  kills: number;
+  points: number;
+  prizeWon: number;
 }
 
 export interface TournamentMatch {
@@ -32,14 +43,18 @@ export interface TournamentMatch {
   scheduleTime: string;
   totalSlots: number;
   joinedPlayers: PlayerEntry[];
-  status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+  status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'archived';
   roomId?: string;
   roomPassword?: string;
+  roomReleaseTiming?: 'now' | '10min' | '15min' | 'hidden';
+  isRoomVisibleToPlayers?: boolean;
   rules: string[];
   winnerName?: string;
   winnerUid?: string;
   winnerPrize?: number;
   totalKillsWinner?: number;
+  results?: MatchResultEntry[];
+  cancelReason?: string;
 }
 
 export interface UserProfile {
@@ -54,6 +69,7 @@ export interface UserProfile {
   matchesWon: number;
   totalWonBDT: number;
   avatar: string;
+  status?: 'active' | 'banned';
 }
 
 export interface Transaction {
@@ -68,6 +84,7 @@ export interface Transaction {
   status: 'pending' | 'approved' | 'rejected';
   date: string;
   note?: string;
+  evidenceNote?: string;
 }
 
 export interface DiamondPackage {
@@ -88,4 +105,22 @@ export interface TopPlayer {
   matches: number;
   kills: number;
   badge: string;
+}
+
+export interface WebsiteSettings {
+  siteName: string;
+  logoText: string;
+  helplinePhone: string;
+  whatsappNumber: string;
+  telegramUsername: string;
+  supportEmail: string;
+  bKashNumber: string;
+  bKashNote: string;
+  nagadNumber: string;
+  nagadNote: string;
+  rocketNumber: string;
+  rocketNote: string;
+  rules: string[];
+  noticeText: string;
+  supportNotice: string;
 }

@@ -5,7 +5,7 @@ import { PAYMENT_NUMBERS } from '../data/initialData';
 import { Gem, ShieldCheck, Zap, X, Copy, Check, CheckCircle, AlertCircle } from 'lucide-react';
 
 export const ShopView: React.FC = () => {
-  const { diamondPackages, user, buyDiamondTopup } = useTournament();
+  const { diamondPackages, user, settings, buyDiamondTopup } = useTournament();
   const [selectedPkg, setSelectedPkg] = useState<DiamondPackage | null>(null);
   const [playerUid, setPlayerUid] = useState(user.freeFireUid || '');
   const [paymentMethod, setPaymentMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
@@ -13,6 +13,12 @@ export const ShopView: React.FC = () => {
   const [trxId, setTrxId] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const paymentNumbersMap = {
+    bKash: `${settings.bKashNumber} (${settings.bKashNote || 'Personal - Send Money'})`,
+    Nagad: `${settings.nagadNumber} (${settings.nagadNote || 'Personal - Send Money'})`,
+    Rocket: `${settings.rocketNumber} (${settings.rocketNote || 'Personal - Send Money'})`,
+  };
 
   const handleCopy = (num: string, key: string) => {
     const clean = num.split(' ')[0].replace('-', '');
@@ -188,10 +194,10 @@ export const ShopView: React.FC = () => {
                   নিচের নাম্বারে ৳{selectedPkg.priceBDT} Send Money করুন:
                 </span>
                 <div className="flex items-center justify-between font-mono font-bold text-amber-300 mt-1">
-                  <span className="truncate">{PAYMENT_NUMBERS[paymentMethod]}</span>
+                  <span className="truncate">{paymentNumbersMap[paymentMethod]}</span>
                   <button
                     type="button"
-                    onClick={() => handleCopy(PAYMENT_NUMBERS[paymentMethod], 'shop-num')}
+                    onClick={() => handleCopy(paymentNumbersMap[paymentMethod], 'shop-num')}
                     className="p-1 hover:bg-slate-800 rounded text-slate-300 ml-2 shrink-0"
                   >
                     {copiedKey === 'shop-num' ? (

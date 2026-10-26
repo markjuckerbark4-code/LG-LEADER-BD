@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useTournament } from '../context/TournamentContext';
 import { Headphones, X, MessageSquare, Phone, Send, CheckCircle, ExternalLink } from 'lucide-react';
 
 export const FloatingSupport: React.FC = () => {
+  const { settings } = useTournament();
   const [isOpen, setIsOpen] = useState(false);
   const [ticketMessage, setTicketMessage] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -55,7 +57,7 @@ export const FloatingSupport: React.FC = () => {
                 <Headphones className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-white">LG LEADER BD হেল্পলাইন</h3>
+                <h3 className="font-extrabold text-base text-white">{settings.siteName} হেল্পলাইন</h3>
                 <p className="text-xs text-emerald-400 font-medium">২৪/৭ অনলাইন কাস্টমার সাপোর্ট</p>
               </div>
             </div>
@@ -63,7 +65,7 @@ export const FloatingSupport: React.FC = () => {
             {/* Instant Channels */}
             <div className="space-y-2 mb-4">
               <a
-                href="https://wa.me/8801812345678?text=Hello%20LG%20LEADER%20BD%20Support,%20I%20need%20help"
+                href={`https://wa.me/88${settings.whatsappNumber.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(settings.siteName)}%20Support`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-between p-3 rounded-xl bg-emerald-950/60 border border-emerald-600/40 hover:bg-emerald-900/60 transition-colors"
@@ -72,14 +74,14 @@ export const FloatingSupport: React.FC = () => {
                   <MessageSquare className="w-5 h-5 text-emerald-400" />
                   <div>
                     <div className="text-sm font-bold text-emerald-200">হোয়াটসঅ্যাপ সাপোর্ট</div>
-                    <div className="text-[11px] text-emerald-400">01812-345678 (সরাসরি মেসেজ)</div>
+                    <div className="text-[11px] text-emerald-400">{settings.whatsappNumber} (সরাসরি মেসেজ)</div>
                   </div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-emerald-400" />
               </a>
 
               <a
-                href="https://t.me/lgleaderbd"
+                href={`https://t.me/${settings.telegramUsername.replace('@', '')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-between p-3 rounded-xl bg-sky-950/60 border border-sky-600/40 hover:bg-sky-900/60 transition-colors"
@@ -88,7 +90,7 @@ export const FloatingSupport: React.FC = () => {
                   <Send className="w-5 h-5 text-sky-400" />
                   <div>
                     <div className="text-sm font-bold text-sky-200">টেলিগ্রাম চ্যানেল ও গ্রুপ</div>
-                    <div className="text-[11px] text-sky-400">@LG_LEADER_BD_OFFICIAL</div>
+                    <div className="text-[11px] text-sky-400">{settings.telegramUsername}</div>
                   </div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-sky-400" />
@@ -99,7 +101,7 @@ export const FloatingSupport: React.FC = () => {
                   <Phone className="w-5 h-5 text-amber-400" />
                   <div>
                     <div className="text-sm font-bold text-slate-200">হটলাইন নাম্বার</div>
-                    <div className="text-[11px] text-slate-400 font-mono">+880 1812-345678</div>
+                    <div className="text-[11px] text-slate-400 font-mono">{settings.helplinePhone}</div>
                   </div>
                 </div>
               </div>

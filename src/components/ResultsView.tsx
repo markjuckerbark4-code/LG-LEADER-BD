@@ -120,6 +120,34 @@ export const ResultsView: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Published Result Breakdown Table (Position, Kills, Points) */}
+                {m.results && m.results.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-800">
+                    <div className="text-[11px] font-bold text-slate-400 mb-1.5">ফলাফল স্কোরবোর্ড (Scoreboard)</div>
+                    <div className="space-y-1">
+                      {m.results.map((res) => (
+                        <div
+                          key={res.playerId}
+                          className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-slate-950/60"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-amber-400 w-5">#{res.position}</span>
+                            <span className="font-semibold text-slate-200">{res.gamerName}</span>
+                            <span className="font-mono text-[10px] text-slate-500">{res.uid}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span className="text-emerald-400 font-bold">{res.kills} Kills</span>
+                            <span className="text-sky-400 font-bold">{res.points} Pts</span>
+                            {res.prizeWon > 0 && (
+                              <span className="text-amber-300 font-black">৳{res.prizeWon}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}

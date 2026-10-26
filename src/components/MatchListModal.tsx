@@ -164,7 +164,7 @@ export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack
                   </div>
 
                   {/* Room ID & Pass disclosure (if match is ongoing or published) */}
-                  {match.roomId ? (
+                  {match.roomId && match.isRoomVisibleToPlayers !== false ? (
                     <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-600/50 mb-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">

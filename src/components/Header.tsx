@@ -9,7 +9,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onNavigateToAdmin }) => {
-  const { user, notice } = useTournament();
+  const { user, settings } = useTournament();
   const [timeStr, setTimeStr] = useState('09:58 PM');
 
   useEffect(() => {
@@ -53,12 +53,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onNavigateToAdmin 
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
               <h1 className="text-base sm:text-lg font-black tracking-tight text-white uppercase flex items-center gap-1">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-red-500">
-                  LG LEADER BD
+                  {settings.siteName || 'LG LEADER BD'}
                 </span>
               </h1>
             </div>
             <span className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">
-              FREE FIRE ESPORTS
+              {settings.logoText || 'FREE FIRE ESPORTS'}
             </span>
           </div>
         </div>
@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onNavigateToAdmin 
         <Bell className="w-3.5 h-3.5 text-amber-400 shrink-0 mr-2 animate-bounce" />
         <div className="overflow-hidden whitespace-nowrap w-full">
           <div className="animate-marquee inline-block text-xs font-medium text-amber-300 tracking-wide">
-            {notice}
+            {settings.noticeText}
           </div>
         </div>
       </div>
