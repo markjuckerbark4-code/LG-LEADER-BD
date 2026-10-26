@@ -46,9 +46,12 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
   const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
-    const res = submitDeposit(depositMethod, Number(depositAmount), depositTrxId, depositPhone);
+    const res = submitDeposit('Nagad', Number(depositAmount), depositTrxId, depositPhone);
     if (res.success) {
-      setFeedback({ type: 'success', message: res.message });
+      setFeedback({
+        type: 'success',
+        message: 'নগদ ডিপোজিট রিকোয়েস্ট সফলভাবে জমা হয়েছে! অ্যাডমিন প্যানেলে নোটিফিকেশন পাঠানো হয়েছে, দ্রুত যাচাই করে ব্যালেন্স যোগ করে দেওয়া হবে।',
+      });
       setDepositTrxId('');
     } else {
       setFeedback({ type: 'error', message: res.message });
@@ -169,103 +172,150 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
           </div>
         )}
 
-        {/* Tab 1: DEPOSIT */}
+        {/* Tab 1: EXCLUSIVE NAGAD DEPOSIT (Add Fund) */}
         {activeTab === 'deposit' && (
-          <form onSubmit={handleDepositSubmit} className="space-y-3">
+          <form onSubmit={handleDepositSubmit} className="space-y-3.5">
+            {/* Nagad Branded Header Banner */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 p-4 text-white shadow-lg shadow-orange-950/40">
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-sm text-white">
+                      ৳
+                    </span>
+                    <div>
+                      <h4 className="font-black text-sm tracking-wide">নগদ (Nagad) Send Money</h4>
+                      <p className="text-[10px] text-orange-100 font-semibold">অফিসিয়াল পার্সোনাল একাউন্ট</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-white/20 backdrop-blur-md text-white font-extrabold px-2 py-0.5 rounded-full uppercase">
+                    Personal
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-black/35 backdrop-blur-md border border-white/20 mt-2 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-orange-200 font-medium block">
+                      সেন্ড মানি করার নাম্বার:
+                    </span>
+                    <span className="text-lg font-black font-mono tracking-wider text-white">
+                      01317857373
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText('01317857373');
+                      setCopiedKey('nagad-official');
+                      setTimeout(() => setCopiedKey(null), 2000);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-orange-700 hover:bg-orange-50 font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    {copiedKey === 'nagad-official' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                        <span>কপি হয়েছে</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>কপি করুন</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Decorative background glow */}
+              <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
+            </div>
+
+            {/* Quick Step Guide */}
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1 text-slate-300">
+              <div className="font-bold text-amber-400 text-[11px] mb-1">
+                টাকা পাঠানোর সঠিক নিয়ম:
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                ১. আপনার <strong>নগদ অ্যাপ</strong> অথবা <strong>*167#</strong> ডায়াল করে <strong>Send Money</strong> করুন।
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                ২. প্রাপক নাম্বার হিসেবে <strong>01317857373</strong> দিন।
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                ৩. টাকা পাঠানো সম্পন্ন হলে নিচের ফর্মে আপনার <strong>নগদ নাম্বার</strong> ও ফিরতি মেসেজের <strong>Transaction ID (TrxID)</strong> দিয়ে সাবমিট দিন।
+              </p>
+            </div>
+
+            {/* Quick Amount Selector */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                পেমেন্ট মেথড নির্বাচন করুন:
+                টাকার পরিমাণ নির্বাচন করুন (BDT):
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['bKash', 'Nagad', 'Rocket'] as const).map((method) => (
+              <div className="grid grid-cols-5 gap-1.5 mb-2">
+                {[50, 100, 200, 300, 500].map((amt) => (
                   <button
-                    key={method}
+                    key={amt}
                     type="button"
-                    onClick={() => setDepositMethod(method)}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
-                      depositMethod === method
-                        ? 'border-sky-500 bg-sky-500/20 text-white shadow-sm'
-                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'
+                    onClick={() => setDepositAmount(amt)}
+                    className={`py-1.5 rounded-lg text-xs font-black transition-all ${
+                      depositAmount === amt
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
-                    {method}
+                    ৳{amt}
                   </button>
                 ))}
               </div>
+
+              <input
+                type="number"
+                min="20"
+                step="5"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(Number(e.target.value))}
+                placeholder="অথবা পরিমাণ লিখুন (যেমন: 150)"
+                className="w-full text-xs font-bold bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                required
+              />
             </div>
 
-            {/* Instruction & Number */}
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-              <div className="text-[11px] text-slate-400 mb-1">
-                নিচের নাম্বারে <span className="text-amber-400 font-bold">Send Money</span> করুন:
-              </div>
-              <div className="flex items-center justify-between font-mono font-bold text-amber-300 bg-black/50 p-2 rounded-lg">
-                <span className="truncate">{paymentNumbersMap[depositMethod]}</span>
-                <button
-                  type="button"
-                  onClick={() => handleCopyNumber(paymentNumbersMap[depositMethod], 'dep-num')}
-                  className="p-1 hover:bg-slate-800 rounded text-slate-300 ml-2 shrink-0"
-                  title="Copy Number"
-                >
-                  {copiedKey === 'dep-num' ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  টাকার পরিমাণ (BDT):
-                </label>
-                <input
-                  type="number"
-                  min="20"
-                  step="5"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(Number(e.target.value))}
-                  className="w-full text-xs font-bold bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sky-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  প্রেরকের বিকাশ/নগদ নং:
-                </label>
-                <input
-                  type="text"
-                  value={depositPhone}
-                  onChange={(e) => setDepositPhone(e.target.value)}
-                  placeholder="01XXXXXXXXX"
-                  className="w-full text-xs font-mono bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sky-500"
-                  required
-                />
-              </div>
-            </div>
-
+            {/* Sender Number Input */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                ট্রানজেকশন আইডি (TrxID):
+                যে নগদ নাম্বার থেকে টাকা পাঠিয়েছেন:
+              </label>
+              <input
+                type="text"
+                value={depositPhone}
+                onChange={(e) => setDepositPhone(e.target.value)}
+                placeholder="যেমন: 01XXXXXXXXX"
+                className="w-full text-xs font-mono bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                required
+              />
+            </div>
+
+            {/* Transaction ID Input */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                নগদ ট্রানজেকশন আইডি (Transaction ID / TrxID):
               </label>
               <input
                 type="text"
                 value={depositTrxId}
                 onChange={(e) => setDepositTrxId(e.target.value)}
-                placeholder="যেমন: BKL891729304"
-                className="w-full text-xs font-mono uppercase bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sky-500"
+                placeholder="যেমন: 7NJ89K2P"
+                className="w-full text-xs font-mono uppercase bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-amber-300 font-bold focus:outline-none focus:border-orange-500"
                 required
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-xs shadow-md shadow-sky-900/40 cursor-pointer active:scale-98 transition-all mt-2"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black text-xs shadow-lg shadow-orange-900/40 cursor-pointer active:scale-98 transition-all mt-2"
             >
-              টাকা এড করার রিকোয়েস্ট পাঠান
+              নগদ ডিপোজিট রিকোয়েস্ট সাবমিট করুন
             </button>
           </form>
         )}

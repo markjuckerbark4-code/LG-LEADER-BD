@@ -59,7 +59,6 @@ const AppContent: React.FC = () => {
             setWalletDefaultTab('deposit');
             setIsWalletOpen(true);
           }}
-          onNavigateToAdmin={navigateToAdmin}
           currentTab={currentTab}
         />
 

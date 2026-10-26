@@ -21,21 +21,38 @@ export const FloatingSupport: React.FC = () => {
 
   return (
     <>
-      {/* Floating Headset Avatar Button */}
-      <div className="fixed bottom-20 right-4 z-40">
+      {/* Floating Action Buttons: Telegram & Customer Support */}
+      <div className="fixed bottom-20 right-4 z-40 flex flex-col items-center gap-2.5">
+        {/* Telegram Direct Floating Button */}
+        <a
+          href="https://t.me/+krR4oOt5WJxkMzc1"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative group w-12 h-12 rounded-full bg-gradient-to-tr from-[#229ED9] to-[#2AABEE] p-0.5 shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 border-2 border-white flex items-center justify-center cursor-pointer shadow-sky-500/30"
+          title="অফিশিয়াল টেলিগ্রাম চ্যানেলে জয়েন করুন"
+          aria-label="Telegram Channel"
+        >
+          <svg className="w-6 h-6 fill-white ml-[-1px] mt-[1px]" viewBox="0 0 24 24">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.828.946z" />
+          </svg>
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-sky-300 border-2 border-white animate-ping" />
+        </a>
+
+        {/* Floating Headset Avatar Button */}
         <button
           onClick={() => setIsOpen(true)}
-          className="relative group w-13 h-13 rounded-full bg-gradient-to-tr from-purple-200 via-indigo-100 to-amber-100 p-1 shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 border-2 border-purple-400 flex items-center justify-center cursor-pointer"
+          className="relative group w-12 h-12 rounded-full bg-gradient-to-tr from-purple-200 via-indigo-100 to-amber-100 p-0.5 shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 border-2 border-purple-400 flex items-center justify-center cursor-pointer"
           aria-label="Customer Support"
+          title="২৪/৭ কাস্টমার সাপোর্ট"
         >
           {/* Support Headset Agent Graphic */}
-          <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center text-slate-800 shadow-inner relative overflow-hidden">
-            <Headphones className="w-6 h-6 text-indigo-950" />
-            <div className="absolute -bottom-1 w-6 h-3 bg-amber-400 rounded-t-full" />
+          <div className="w-9 h-9 rounded-full bg-amber-200 flex items-center justify-center text-slate-800 shadow-inner relative overflow-hidden">
+            <Headphones className="w-5 h-5 text-indigo-950" />
+            <div className="absolute -bottom-1 w-5 h-2.5 bg-amber-400 rounded-t-full" />
           </div>
 
           {/* Active online green badge */}
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white animate-pulse" />
+          <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white animate-pulse" />
         </button>
       </div>
 
@@ -81,7 +98,7 @@ export const FloatingSupport: React.FC = () => {
               </a>
 
               <a
-                href={`https://t.me/${settings.telegramUsername.replace('@', '')}`}
+                href={settings.telegramUsername.startsWith('http') ? settings.telegramUsername : `https://t.me/${settings.telegramUsername.replace('@', '')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-between p-3 rounded-xl bg-sky-950/60 border border-sky-600/40 hover:bg-sky-900/60 transition-colors"
@@ -89,8 +106,8 @@ export const FloatingSupport: React.FC = () => {
                 <div className="flex items-center gap-2.5">
                   <Send className="w-5 h-5 text-sky-400" />
                   <div>
-                    <div className="text-sm font-bold text-sky-200">টেলিগ্রাম চ্যানেল ও গ্রুপ</div>
-                    <div className="text-[11px] text-sky-400">{settings.telegramUsername}</div>
+                    <div className="text-sm font-bold text-sky-200">অফিশিয়াল টেলিগ্রাম চ্যানেল</div>
+                    <div className="text-[11px] text-sky-400 font-mono">Join Telegram Channel</div>
                   </div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-sky-400" />

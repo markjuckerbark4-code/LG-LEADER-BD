@@ -315,53 +315,7 @@ export const INITIAL_USER: UserProfile = {
   avatar: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150&auto=format&fit=crop&q=80',
 };
 
-export const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx-101',
-    userId: 'u-1',
-    userName: 'Mahinn',
-    type: 'deposit',
-    amount: 100,
-    method: 'bKash',
-    trxId: 'BKL891729304',
-    phone: '01812345678',
-    status: 'approved',
-    date: '2026-10-25 04:30 PM',
-  },
-  {
-    id: 'tx-102',
-    userId: 'u-1',
-    userName: 'Mahinn',
-    type: 'match_prize',
-    amount: 25,
-    status: 'approved',
-    date: '2026-10-25 07:45 PM',
-    note: 'Won 1st prize in Free Match #01',
-  },
-  {
-    id: 'tx-103',
-    userId: 'u-2',
-    userName: 'Tanvir_Pro',
-    type: 'deposit',
-    amount: 200,
-    method: 'Nagad',
-    trxId: 'NG9182374619',
-    phone: '01799887766',
-    status: 'pending',
-    date: '2026-10-26 08:50 AM',
-  },
-  {
-    id: 'tx-104',
-    userId: 'u-3',
-    userName: 'BD_SHADOW',
-    type: 'withdraw',
-    amount: 150,
-    method: 'bKash',
-    phone: '01911223344',
-    status: 'pending',
-    date: '2026-10-26 09:10 AM',
-  },
-];
+export const INITIAL_TRANSACTIONS: Transaction[] = [];
 
 export const INITIAL_DIAMONDS: DiamondPackage[] = [
   {
@@ -480,13 +434,13 @@ export const INITIAL_TOP_PLAYERS: TopPlayer[] = [
 export const INITIAL_SETTINGS = {
   siteName: 'LG LEADER BD',
   logoText: 'LG LEADER BD',
-  helplinePhone: '+880 1812-345678',
-  whatsappNumber: '01812345678',
-  telegramUsername: '@LG_LEADER_BD_OFFICIAL',
+  helplinePhone: '+880 1317-857373',
+  whatsappNumber: '01317857373',
+  telegramUsername: 'https://t.me/+krR4oOt5WJxkMzc1',
   supportEmail: 'support@lgleaderbd.com',
   bKashNumber: '01812-345678',
   bKashNote: 'বিকাশ পার্সোনাল - Send Money করবেন',
-  nagadNumber: '01712-345678',
+  nagadNumber: '01317857373',
   nagadNote: 'নগদ পার্সোনাল - Send Money করবেন',
   rocketNumber: '01912-345678-9',
   rocketNote: 'রকেট পার্সোনাল - Send Money করবেন',
@@ -498,8 +452,8 @@ export const INITIAL_SETTINGS = {
     'রুম আইডি বা পাসওয়ার্ড অন্য কারো সাথে শেয়ার করলে উভয় প্লেয়ারকে টুর্নামেন্ট থেকে বাতিল করা হবে।',
   ],
   noticeText:
-    '🔥 LG LEADER BD এ সবাইকে স্বাগতম! প্রতিদিন Free Fire টুর্নামেন্ট খেলুন এবং জিতে নিন নগদ টাকা সরাসরি bKash & Nagad এ! বিকাশ/নগদে ডিপোজিট মাত্র ২ মিনিটে এপ্রুভ হয়। রুম আইডি ও পাসওয়ার্ড ম্যাচ শুরুর ১০ মিনিট আগে দেওয়া হয়।',
-  supportNotice: '২৪/৭ যেকোনো প্রয়োজনে আমাদের হোয়াটসঅ্যাপ বা টেলিগ্রামে মেসেজ দিন।',
+    '🔥 LG LEADER BD এ সবাইকে স্বাগতম! প্রতিদিন Free Fire টুর্নামেন্ট খেলুন এবং জিতে নিন নগদ টাকা! নগদ (Nagad) ডিপোজিট করুন ০১৩১৭৮৫৭৩৭৩ নাম্বারে। দ্রুত এপ্রুভ ও রুম আইডি পাবেন!',
+  supportNotice: '২৪/৭ যেকোনো প্রয়োজনে আমাদের অফিশিয়াল টেলিগ্রাম চ্যানেলে জয়েন করুন।',
 };
 
 export const INITIAL_PLAYERS: UserProfile[] = [
@@ -577,6 +531,6 @@ export const INITIAL_PLAYERS: UserProfile[] = [
 
 export const PAYMENT_NUMBERS = {
   bKash: '01812-345678 (Personal - Send Money)',
-  Nagad: '01712-345678 (Personal - Send Money)',
+  Nagad: '01317857373 (Personal - Send Money)',
   Rocket: '01912-345678-9 (Personal - Send Money)',
 };

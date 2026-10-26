@@ -89,7 +89,7 @@ const STORAGE_KEYS = {
   MATCHES: 'lg_leader_matches_v2',
   USER: 'lg_leader_user_v2',
   PLAYERS: 'lg_leader_players_v2',
-  TRANSACTIONS: 'lg_leader_transactions_v2',
+  TRANSACTIONS: 'lg_leader_transactions_clean_v3',
   SETTINGS: 'lg_leader_settings_v2',
 };
 
@@ -115,6 +115,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    // Clean old demo transactions key if exists
+    localStorage.removeItem('lg_leader_transactions_v2');
+    localStorage.removeItem('lg_leader_transactions_v1');
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
     return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
   });

@@ -4,11 +4,10 @@ import { Bell, Wallet, ShieldCheck, Wifi, BatteryCharging, Signal } from 'lucide
 
 interface HeaderProps {
   onOpenWallet: () => void;
-  onNavigateToAdmin: () => void;
   currentTab: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onNavigateToAdmin }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenWallet }) => {
   const { user, settings } = useTournament();
   const [timeStr, setTimeStr] = useState('09:58 PM');
 
@@ -63,19 +62,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onNavigateToAdmin 
           </div>
         </div>
 
-        {/* Right side actions: Wallet Balance & Admin toggle */}
+        {/* Right side actions: User Wallet Balance */}
         <div className="flex items-center gap-2">
-          {/* Quick Admin Access Button */}
-          <button
-            onClick={onNavigateToAdmin}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-800/90 text-amber-300 hover:bg-slate-700 hover:text-amber-200 border border-amber-500/30 transition-colors shadow-sm"
-            title="Open Admin Panel (/admin)"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Admin Panel</span>
-            <span className="sm:hidden font-mono text-[10px]">/admin</span>
-          </button>
-
           {/* User Wallet Balance Chip */}
           <button
             onClick={onOpenWallet}

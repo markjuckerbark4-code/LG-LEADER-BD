@@ -30,6 +30,8 @@ import {
   Save,
   Check,
   Award,
+  Lock,
+  LogOut,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -66,6 +68,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     publishResults,
     updateSettings,
   } = useTournament();
+
+  // Admin Password Protection: mahin44@@
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('lg_admin_auth_v1') === 'true';
+  });
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === 'mahin44@@') {
+      sessionStorage.setItem('lg_admin_auth_v1', 'true');
+      setIsAuthenticated(true);
+      setPasswordError('');
+    } else {
+      setPasswordError('ভুল পাসওয়ার্ড! সঠিক অ্যাডমিন পাসওয়ার্ড প্রদান করুন।');
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('lg_admin_auth_v1');
+    setIsAuthenticated(false);
+    setPasswordInput('');
+    setPasswordError('');
+  };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('tournaments');
 
@@ -332,6 +360,89 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     }));
   };
 
+  // If not authenticated, show password protection screen (Password: mahin44@@)
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+        {/* Background ambient glow */}
+        <div className="absolute w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative w-full max-w-sm rounded-3xl bg-slate-900/90 border border-slate-800 p-6 sm:p-7 shadow-2xl backdrop-blur-md">
+          {/* Header Icon */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 mb-3">
+              <Lock className="w-7 h-7 text-slate-950" />
+            </div>
+            <h2 className="text-lg font-black text-white uppercase tracking-tight">
+              LG LEADER BD
+            </h2>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-xs font-bold text-amber-400">Admin Security Access</span>
+              <span className="text-[10px] bg-red-950/80 text-red-400 border border-red-800/80 px-1.5 py-0.5 rounded font-mono font-bold">
+                /admin
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              অ্যাডমিন প্যানেলে প্রবেশ করতে পাসওয়ার্ড প্রদান করুন
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                অ্যাডমিন পাসওয়ার্ড:
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  placeholder="Password লিখুন..."
+                  autoFocus
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 pr-10 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {passwordError && (
+                <div className="text-xs text-red-400 font-bold mt-2 flex items-center gap-1.5 bg-red-950/60 p-2 rounded-lg border border-red-800/60">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 active:scale-98 transition-all cursor-pointer uppercase tracking-wider"
+            >
+              লগইন করুন (Enter Admin)
+            </button>
+
+            <button
+              type="button"
+              onClick={onBackToApp}
+              className="w-full py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+            >
+              ← ওয়েবসাইটে ফিরে যান
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-16">
       {/* Top Admin Bar */}
@@ -353,19 +464,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           </div>
         </div>
 
-        {/* View User App Button */}
-        <button
-          onClick={onBackToApp}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md shadow-sky-900/40 cursor-pointer active:scale-95 transition-all"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">ইউজার ওয়েবসাইট দেখুন</span>
-          <span className="sm:hidden">ওয়েবসাইট</span>
-        </button>
+        {/* View User App & Logout Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onBackToApp}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-md shadow-sky-900/40 cursor-pointer active:scale-95 transition-all"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">ইউজার ওয়েবসাইট দেখুন</span>
+            <span className="sm:hidden">ওয়েবসাইট</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-700/60 font-bold text-xs shadow cursor-pointer active:scale-95 transition-all"
+            title="লগআউট"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>লগআউট</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+        {/* Real-time Pending Nagad / bKash Payment Alert Notification Banner */}
+        {pendingDeposits.length > 0 && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-600/30 via-amber-600/20 to-red-600/30 border border-orange-500/60 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-3">
+              <span className="w-3.5 h-3.5 rounded-full bg-orange-400 animate-ping shrink-0" />
+              <div>
+                <div className="text-sm font-black text-white flex items-center gap-2">
+                  <span>🔔 নতুন নগদ (Nagad) ডিপোজিট রিকোয়েস্ট এসেছে!</span>
+                  <span className="text-xs font-mono bg-orange-500 text-slate-950 px-2 py-0.5 rounded-full font-black">
+                    {pendingDeposits.length} টি পেন্ডিং
+                  </span>
+                </div>
+                <div className="text-xs text-amber-200/90 mt-0.5">
+                  ইউজারের প্রেরিত TrxID ও নগদ নাম্বার মিলিয়ে দেখে নিজে যাচাই করে Approve অথবা Reject করুন।
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('payments')}
+              className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-slate-950 font-black text-xs shadow-md shadow-orange-950/40 cursor-pointer active:scale-95 transition-all shrink-0"
+            >
+              এখনই যাচাই করুন →
+            </button>
+          </div>
+        )}
+
         {/* The 6 Core Navigation Tabs strictly requested by user */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-1.5 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl">
           <button
