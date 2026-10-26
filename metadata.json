@@ -1,0 +1,6 @@
+{
+  "name": "LG LEADER BD - Free Fire Tournament & Esports",
+  "description": "LG LEADER BD - Bangladesh's leading Free Fire tournament platform with real-time match joining, wallet, results, diamond shop, and admin panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
