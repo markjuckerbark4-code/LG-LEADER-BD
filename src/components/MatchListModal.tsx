@@ -88,7 +88,7 @@ export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack
           </div>
         ) : (
           categoryMatches.map((match) => {
-            const isJoined = match.joinedPlayers.some((p) => p.userId === user.id);
+            const isJoined = user ? match.joinedPlayers.some((p) => p.userId === user.id) : false;
             const isFull = match.joinedPlayers.length >= match.totalSlots;
             const progress = Math.min(100, Math.round((match.joinedPlayers.length / match.totalSlots) * 100));
 

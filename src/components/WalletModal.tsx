@@ -22,18 +22,18 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
   const [depositMethod, setDepositMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
   const [depositAmount, setDepositAmount] = useState<number>(100);
   const [depositTrxId, setDepositTrxId] = useState('');
-  const [depositPhone, setDepositPhone] = useState(user.phone || '');
+  const [depositPhone, setDepositPhone] = useState(user?.phone || '');
 
   // Withdraw Form State
   const [withdrawMethod, setWithdrawMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
   const [withdrawAmount, setWithdrawAmount] = useState<number>(50);
-  const [withdrawPhone, setWithdrawPhone] = useState(user.phone || '');
+  const [withdrawPhone, setWithdrawPhone] = useState(user?.phone || '');
 
   // Feedback State
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const totalBalance = user.depositBalance + user.winningBalance;
+  const totalBalance = user ? (user.depositBalance || 0) + (user.winningBalance || 0) : 0;
 
   const handleCopyNumber = (num: string, key: string) => {
     // extract digits only
@@ -98,11 +98,11 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
           <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-800/80 text-xs">
             <div>
               <span className="text-slate-400">ডিপোজিট ব্যালেন্স:</span>
-              <div className="font-bold text-sky-300 tabular-nums">৳{user.depositBalance}</div>
+              <div className="font-bold text-sky-300 tabular-nums">৳{user?.depositBalance || 0}</div>
             </div>
             <div>
               <span className="text-slate-400">উইনিং ব্যালেন্স (Cashout):</span>
-              <div className="font-bold text-emerald-400 tabular-nums">৳{user.winningBalance}</div>
+              <div className="font-bold text-emerald-400 tabular-nums">৳{user?.winningBalance || 0}</div>
             </div>
           </div>
         </div>
@@ -356,14 +356,14 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
               <input
                 type="number"
                 min="50"
-                max={user.winningBalance}
+                max={user?.winningBalance || 0}
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(Number(e.target.value))}
                 className="w-full text-xs font-bold bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
                 required
               />
               <span className="text-[10px] text-slate-400 mt-1 block">
-                সর্বোচ্চ তুলতে পারবেন: ৳{user.winningBalance}
+                সর্বোচ্চ তুলতে পারবেন: ৳{user?.winningBalance || 0}
               </span>
             </div>
 
@@ -383,9 +383,9 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
 
             <button
               type="submit"
-              disabled={user.winningBalance < 50}
+              disabled={(user?.winningBalance || 0) < 50}
               className={`w-full py-3 rounded-xl font-extrabold text-xs shadow-md transition-all mt-2 ${
-                user.winningBalance >= 50
+                (user?.winningBalance || 0) >= 50
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer active:scale-98 shadow-emerald-900/40'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}

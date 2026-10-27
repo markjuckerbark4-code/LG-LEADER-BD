@@ -11,9 +11,10 @@ import { ProfileView } from './components/ProfileView';
 import { FloatingSupport } from './components/FloatingSupport';
 import { WalletModal } from './components/WalletModal';
 import { AdminPanel } from './components/admin/AdminPanel';
+import { AuthModal } from './components/AuthModal';
 
 const AppContent: React.FC = () => {
-  const { categories, selectedCategory, setSelectedCategory } = useTournament();
+  const { categories, selectedCategory, setSelectedCategory, user } = useTournament();
 
   // Route state: checks whether path is '/admin'
   const [isAdminPath, setIsAdminPath] = useState<boolean>(() => {
@@ -47,6 +48,15 @@ const AppContent: React.FC = () => {
   // If user requested domain/admin, show Admin Panel
   if (isAdminPath) {
     return <AdminPanel onBackToApp={navigateToApp} />;
+  }
+
+  // If user is not logged in, show beautiful Login / Registration form first!
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center">
+        <AuthModal />
+      </div>
+    );
   }
 
   return (

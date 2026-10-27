@@ -61,7 +61,9 @@ export interface UserProfile {
   id: string;
   name: string;
   username: string;
-  phone: string;
+  email?: string;
+  phone?: string;
+  password?: string;
   freeFireUid: string;
   depositBalance: number; // BDT
   winningBalance: number; // BDT
@@ -70,6 +72,7 @@ export interface UserProfile {
   totalWonBDT: number;
   avatar: string;
   status?: 'active' | 'banned';
+  registeredAt?: string;
 }
 
 export interface Transaction {

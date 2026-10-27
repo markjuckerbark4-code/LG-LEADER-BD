@@ -761,69 +761,87 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   type="text"
                   value={playerSearch}
                   onChange={(e) => setPlayerSearch(e.target.value)}
-                  placeholder="প্লেয়ারের নাম, ইউজারনেম, ফোন বা Free Fire UID দিয়ে সার্চ করুন..."
+                  placeholder="প্লেয়ারের নাম, ইমেইল, ইউজারনেম, ফোন বা Free Fire UID দিয়ে সার্চ করুন..."
                   className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-white focus:outline-none focus:border-sky-500"
                 />
               </div>
 
               <div className="text-xs font-bold text-slate-400">
-                মোট রেজিস্টার্ড প্লেয়ার: <strong className="text-white">{players.length}</strong>
+                মোট রেজিস্টার্ড প্লেয়ার / ইউজার: <strong className="text-amber-400">{players.length}</strong> জন
               </div>
             </div>
 
             {/* Players Table / Directory */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {players
-                .filter(
-                  (p) =>
-                    p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
-                    p.username.toLowerCase().includes(playerSearch.toLowerCase()) ||
-                    p.phone.includes(playerSearch) ||
-                    p.freeFireUid.includes(playerSearch)
-                )
-                .map((p) => {
-                  const joinedMatchesList = matches.filter((m) =>
-                    m.joinedPlayers.some((jp) => jp.userId === p.id || jp.uid === p.freeFireUid)
-                  );
+            {players.length === 0 ? (
+              <div className="p-8 text-center bg-slate-900/40 rounded-2xl border border-slate-800 text-slate-400 space-y-2">
+                <Users className="w-10 h-10 mx-auto text-slate-600" />
+                <p className="font-bold text-sm text-slate-300">এখনো কোনো প্লেয়ার রেজিস্ট্রেশন করেনি</p>
+                <p className="text-xs text-slate-500">
+                  ওয়েবসাইটে নতুন কোনো ইউজার রেজিস্ট্রেশন সম্পন্ন করলেই তার তথ্য সাথে সাথে এখানে জমা হবে।
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {players
+                  .filter(
+                    (p) =>
+                      p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
+                      p.username.toLowerCase().includes(playerSearch.toLowerCase()) ||
+                      (p.email && p.email.toLowerCase().includes(playerSearch.toLowerCase())) ||
+                      (p.phone && p.phone.includes(playerSearch)) ||
+                      p.freeFireUid.includes(playerSearch)
+                  )
+                  .map((p) => {
+                    const joinedMatchesList = matches.filter((m) =>
+                      m.joinedPlayers.some((jp) => jp.userId === p.id || jp.uid === p.freeFireUid)
+                    );
 
-                  return (
-                    <div
-                      key={p.id}
-                      className="p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-md space-y-3"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-extrabold text-base text-white">{p.name}</h4>
-                            <span className="text-xs font-mono text-sky-400">(@{p.username})</span>
-                            <span
-                              className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${
-                                p.status === 'banned'
-                                  ? 'bg-red-950 text-red-300 border border-red-700'
-                                  : 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-                              }`}
-                            >
-                              {p.status || 'active'}
-                            </span>
+                    return (
+                      <div
+                        key={p.id}
+                        className="p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-md space-y-3"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-extrabold text-base text-white">{p.username || p.name}</h4>
+                              <span className="text-xs font-mono text-sky-400">(@{p.username})</span>
+                              <span
+                                className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${
+                                  p.status === 'banned'
+                                    ? 'bg-red-950 text-red-300 border border-red-700'
+                                    : 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                }`}
+                              >
+                                {p.status || 'active'}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-1 space-y-0.5">
+                              {p.email && (
+                                <div>ইমেইল: <strong className="font-mono text-sky-300">{p.email}</strong></div>
+                              )}
+                              <div className="flex items-center gap-3">
+                                <span>UID: <strong className="font-mono text-amber-300">{p.freeFireUid}</strong></span>
+                                {p.phone && <span>ফোন: <strong className="font-mono text-slate-200">{p.phone}</strong></span>}
+                              </div>
+                              {p.registeredAt && (
+                                <div className="text-[10px] text-slate-500">রেজিস্ট্রেশন: {p.registeredAt}</div>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-xs text-slate-400 mt-1 space-x-2">
-                            <span>UID: <strong className="font-mono text-amber-300">{p.freeFireUid}</strong></span>
-                            <span>ফোন: <strong className="font-mono text-slate-200">{p.phone}</strong></span>
-                          </div>
+
+                          {/* Ban / Unban Toggle */}
+                          <button
+                            onClick={() => updatePlayerStatus(p.id, p.status === 'banned' ? 'active' : 'banned')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer shrink-0 ${
+                              p.status === 'banned'
+                                ? 'bg-emerald-950 text-emerald-300 border-emerald-700 hover:bg-emerald-900'
+                                : 'bg-red-950/60 text-red-300 border-red-700/60 hover:bg-red-900'
+                            }`}
+                          >
+                            {p.status === 'banned' ? 'Unban Player' : 'Ban Player'}
+                          </button>
                         </div>
-
-                        {/* Ban / Unban Toggle */}
-                        <button
-                          onClick={() => updatePlayerStatus(p.id, p.status === 'banned' ? 'active' : 'banned')}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                            p.status === 'banned'
-                              ? 'bg-emerald-950 text-emerald-300 border-emerald-700 hover:bg-emerald-900'
-                              : 'bg-red-950/60 text-red-300 border-red-700/60 hover:bg-red-900'
-                          }`}
-                        >
-                          {p.status === 'banned' ? 'Unban Player' : 'Ban Player'}
-                        </button>
-                      </div>
 
                       {/* Balances & Stats */}
                       <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-850 text-center text-xs">
@@ -875,7 +893,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                     </div>
                   );
                 })}
-            </div>
+              </div>
+            )}
           </div>
         )}
 

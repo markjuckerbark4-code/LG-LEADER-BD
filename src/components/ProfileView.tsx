@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTournament } from '../context/TournamentContext';
 import {
   Wallet,
@@ -22,20 +22,38 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWithdraw }) => {
-  const { user, topPlayers, settings, updateProfile } = useTournament();
+  const { user, topPlayers, settings, updateProfile, logoutUser } = useTournament();
 
   const [activeModal, setActiveModal] = useState<
     'rules' | 'topPlayers' | 'developer' | 'editProfile' | null
   >(null);
 
   // Edit Profile Form State
-  const [name, setName] = useState(user.name);
-  const [username, setUsername] = useState(user.username);
-  const [phone, setPhone] = useState(user.phone);
-  const [uid, setUid] = useState(user.freeFireUid);
+  const [name, setName] = useState(user?.name || '');
+  const [username, setUsername] = useState(user?.username || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [uid, setUid] = useState(user?.freeFireUid || '');
   const [profileSaved, setProfileSaved] = useState(false);
 
-  const totalBalance = user.depositBalance + user.winningBalance;
+  // Keep state in sync if user changes
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setUsername(user.username || '');
+      setPhone(user.phone || '');
+      setUid(user.freeFireUid || '');
+    }
+  }, [user]);
+
+  if (!user) {
+    return (
+      <div className="w-full p-8 text-center text-slate-400">
+        <p>প্রোফাইল দেখতে অনুগ্রহ করে প্রথমে লগইন করুন।</p>
+      </div>
+    );
+  }
+
+  const totalBalance = (user.depositBalance || 0) + (user.winningBalance || 0);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,8 +78,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         <div className="relative mx-auto w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 p-1 shadow-md flex items-center justify-center">
           <div className="w-full h-full rounded-full bg-amber-100 flex items-center justify-center overflow-hidden">
             {/* Gamer graphic portrait */}
-            <div className="w-12 h-12 rounded-full bg-amber-400 relative flex items-center justify-center">
-              <User className="w-8 h-8 text-amber-900" />
+            <div className="w-12 h-12 rounded-full bg-amber-400 relative flex items-center justify-center font-black text-amber-950 text-xl uppercase">
+              {user.username ? user.username.charAt(0) : <User className="w-8 h-8 text-amber-900" />}
             </div>
           </div>
           <button
@@ -77,14 +95,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         <h2 className="text-xl font-bold tracking-tight mt-2 text-white">
           {user.username}
         </h2>
+        {user.email && (
+          <p className="text-xs text-sky-100/80 font-mono mt-0.5">{user.email}</p>
+        )}
         {user.freeFireUid && (
           <p className="text-xs text-sky-100/90 font-mono mt-0.5">UID: {user.freeFireUid}</p>
+        )}
+        {user.registeredAt && (
+          <p className="text-[10px] text-sky-200/70 mt-0.5">রেজিস্ট্রেশন: {user.registeredAt}</p>
         )}
 
         {/* 3 Stats Columns strictly matching screenshot */}
         <div className="grid grid-cols-3 gap-2 mt-5 pt-3 border-t border-white/20 items-center text-center">
           <div>
-            <div className="text-lg font-black text-white tabular-nums">{user.matchesJoined}</div>
+            <div className="text-lg font-black text-white tabular-nums">{user.matchesJoined || 0}</div>
             <div className="text-[11px] font-medium text-sky-100 mt-0.5 leading-tight">
               ম্যাচ জয়েন করেছেন
             </div>
@@ -100,7 +124,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
           </div>
 
           <div>
-            <div className="text-lg font-black text-white tabular-nums">{user.totalWonBDT}</div>
+            <div className="text-lg font-black text-white tabular-nums">{user.totalWonBDT || 0}</div>
             <div className="text-[11px] font-medium text-sky-100 mt-0.5 leading-tight">
               এখন পর্যন্ত জিতেছেন
             </div>
@@ -218,15 +242,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
-        {/* Logout Button matching screenshot strictly */}
+        {/* Logout Button */}
         <div className="pt-3">
           <button
             onClick={() => {
-              alert('লগআউট সফল হয়েছে! পুনরায় প্রবেশ করতে প্রোফাইলে ট্যাপ করুন।');
+              if (confirm('আপনি কি নিশ্চিত যে আপনি লগআউট করতে চান?')) {
+                logoutUser();
+              }
             }}
-            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#38b6ff] to-[#1e88e5] hover:from-[#29a7f0] hover:to-[#1976d2] text-white font-extrabold text-sm shadow-md shadow-sky-500/30 active:scale-98 transition-all cursor-pointer"
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-500 via-rose-600 to-red-600 hover:from-red-600 hover:to-rose-700 text-white font-extrabold text-sm shadow-md shadow-red-500/20 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            Logout
+            <span>লগআউট করুন (Logout)</span>
           </button>
         </div>
       </div>

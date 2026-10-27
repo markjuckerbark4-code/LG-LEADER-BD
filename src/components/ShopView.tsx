@@ -7,9 +7,9 @@ import { Gem, ShieldCheck, Zap, X, Copy, Check, CheckCircle, AlertCircle } from 
 export const ShopView: React.FC = () => {
   const { diamondPackages, user, settings, buyDiamondTopup } = useTournament();
   const [selectedPkg, setSelectedPkg] = useState<DiamondPackage | null>(null);
-  const [playerUid, setPlayerUid] = useState(user.freeFireUid || '');
+  const [playerUid, setPlayerUid] = useState(user?.freeFireUid || '');
   const [paymentMethod, setPaymentMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
-  const [senderPhone, setSenderPhone] = useState(user.phone || '');
+  const [senderPhone, setSenderPhone] = useState(user?.phone || '');
   const [trxId, setTrxId] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);

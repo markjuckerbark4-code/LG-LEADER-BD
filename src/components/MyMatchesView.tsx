@@ -8,9 +8,11 @@ export const MyMatchesView: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Filter matches where user is enrolled
-  const myJoinedMatches = matches.filter((m) =>
-    m.joinedPlayers.some((p) => p.userId === user.id || p.uid === user.freeFireUid)
-  );
+  const myJoinedMatches = user
+    ? matches.filter((m) =>
+        m.joinedPlayers.some((p) => p.userId === user.id || p.uid === user.freeFireUid)
+      )
+    : [];
 
   const filteredMatches = myJoinedMatches.filter((m) => {
     if (filter === 'upcoming') return m.status === 'upcoming' || m.status === 'ongoing';
@@ -83,7 +85,7 @@ export const MyMatchesView: React.FC = () => {
         ) : (
           filteredMatches.map((match) => {
             const myEntry = match.joinedPlayers.find(
-              (p) => p.userId === user.id || p.uid === user.freeFireUid
+              (p) => user && (p.userId === user.id || p.uid === user.freeFireUid)
             );
 
             return (

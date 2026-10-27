@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const totalBalance = user.depositBalance + user.winningBalance;
+  const totalBalance = user ? (user.depositBalance || 0) + (user.winningBalance || 0) : 0;
 
   return (
     <header className="sticky top-0 z-30 w-full bg-slate-950/95 backdrop-blur-md border-b border-slate-800 shadow-md">

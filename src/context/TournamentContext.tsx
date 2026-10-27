@@ -23,14 +23,25 @@ import {
 interface TournamentContextType {
   categories: GameCategory[];
   matches: TournamentMatch[];
-  user: UserProfile;
+  user: UserProfile | null;
   players: UserProfile[];
+  registeredUsers: UserProfile[];
   transactions: Transaction[];
   diamondPackages: DiamondPackage[];
   topPlayers: TopPlayer[];
   settings: WebsiteSettings;
   selectedCategory: GameCategory | null;
   setSelectedCategory: (cat: GameCategory | null) => void;
+
+  // Authentication
+  registerUser: (data: {
+    username: string;
+    email: string;
+    freeFireUid: string;
+    password: string;
+  }) => { success: boolean; message: string };
+  loginUser: (emailOrUsername: string, password: string) => { success: boolean; message: string };
+  logoutUser: () => void;
 
   // User Actions
   joinMatch: (matchId: string, gamerName: string, uid: string) => { success: boolean; message: string };
@@ -87,8 +98,9 @@ const TournamentContext = createContext<TournamentContextType | undefined>(undef
 const STORAGE_KEYS = {
   CATEGORIES: 'lg_leader_categories_v2',
   MATCHES: 'lg_leader_matches_v2',
-  USER: 'lg_leader_user_v2',
-  PLAYERS: 'lg_leader_players_v2',
+  ACTIVE_USER: 'lg_leader_active_user_v3',
+  REGISTERED_USERS: 'lg_leader_registered_users_v3',
+  PLAYERS: 'lg_leader_players_clean_v4',
   TRANSACTIONS: 'lg_leader_transactions_clean_v3',
   SETTINGS: 'lg_leader_settings_v2',
 };
@@ -104,18 +116,53 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return saved ? JSON.parse(saved) : INITIAL_MATCHES;
   });
 
-  const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USER);
-    return saved ? JSON.parse(saved) : INITIAL_USER;
+  // Registered Accounts Database
+  const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.REGISTERED_USERS);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
   });
 
+  // Currently logged-in active user (starts null if not logged in)
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    // Clear old demo user keys
+    localStorage.removeItem('lg_leader_user_v2');
+    localStorage.removeItem('lg_leader_user_v1');
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.username) return parsed;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  // Players Directory (displayed in Admin Panel)
   const [players, setPlayers] = useState<UserProfile[]>(() => {
+    // Clear old demo players key
+    localStorage.removeItem('lg_leader_players_v2');
+    localStorage.removeItem('lg_leader_players_v1');
     const saved = localStorage.getItem(STORAGE_KEYS.PLAYERS);
-    return saved ? JSON.parse(saved) : INITIAL_PLAYERS;
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return INITIAL_PLAYERS;
+      }
+    }
+    return INITIAL_PLAYERS;
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    // Clean old demo transactions key if exists
     localStorage.removeItem('lg_leader_transactions_v2');
     localStorage.removeItem('lg_leader_transactions_v1');
     const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
@@ -131,7 +178,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const diamondPackages = INITIAL_DIAMONDS;
   const topPlayers = INITIAL_TOP_PLAYERS;
 
-  // Persist to localStorage
+  // Persist states
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
   }, [categories]);
@@ -141,8 +188,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [matches]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    }
   }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(registeredUsers));
+  }, [registeredUsers]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(players));
@@ -172,8 +227,133 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
   }, [matches]);
 
+  // -------------------------------------------------------------
+  // AUTHENTICATION: REGISTER
+  // -------------------------------------------------------------
+  const registerUser = (data: {
+    username: string;
+    email: string;
+    freeFireUid: string;
+    password: string;
+  }) => {
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanUsername = data.username.trim();
+    const cleanUid = data.freeFireUid.trim();
+
+    // Check if email already registered
+    const existsEmail = registeredUsers.some((u) => u.email?.toLowerCase() === cleanEmail);
+    if (existsEmail) {
+      return {
+        success: false,
+        message: 'এই ইমেইল দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে! অনুগ্রহ করে লগইন করুন।',
+      };
+    }
+
+    // Check if username already registered
+    const existsUser = registeredUsers.some(
+      (u) => u.username.toLowerCase() === cleanUsername.toLowerCase()
+    );
+    if (existsUser) {
+      return {
+        success: false,
+        message: 'এই ইউজারনেমটি অন্য কেউ ব্যবহার করছে! ভিন্ন ইউজারনেম পছন্দ করুন।',
+      };
+    }
+
+    const newUser: UserProfile = {
+      id: `usr-${Date.now()}`,
+      name: cleanUsername,
+      username: cleanUsername,
+      email: cleanEmail,
+      freeFireUid: cleanUid,
+      password: data.password,
+      phone: '',
+      depositBalance: 0,
+      winningBalance: 0,
+      matchesJoined: 0,
+      matchesWon: 0,
+      totalWonBDT: 0,
+      avatar: '',
+      status: 'active',
+      registeredAt: new Date().toLocaleDateString('bn-BD', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    };
+
+    // 1. Add to registered users database
+    const updatedUsers = [...registeredUsers, newUser];
+    setRegisteredUsers(updatedUsers);
+    localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(updatedUsers));
+
+    // 2. Add to players directory for Admin Panel Player Management
+    const updatedPlayers = [newUser, ...players.filter((p) => p.id !== newUser.id)];
+    setPlayers(updatedPlayers);
+    localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(updatedPlayers));
+
+    // 3. Set as active logged-in user
+    setUser(newUser);
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(newUser));
+
+    return {
+      success: true,
+      message: 'রেজিস্ট্রেশন সফল হয়েছে! স্বাগতম।',
+    };
+  };
+
+  // -------------------------------------------------------------
+  // AUTHENTICATION: LOGIN
+  // -------------------------------------------------------------
+  const loginUser = (emailOrUsername: string, password: string) => {
+    const query = emailOrUsername.trim().toLowerCase();
+    const found = registeredUsers.find(
+      (u) =>
+        (u.email?.toLowerCase() === query || u.username.toLowerCase() === query) &&
+        u.password === password
+    );
+
+    if (!found) {
+      return {
+        success: false,
+        message: 'ভুল ইমেইল বা পাসওয়ার্ড! সঠিক তথ্য দিন অথবা নতুন রেজিস্ট্রেশন করুন।',
+      };
+    }
+
+    if (found.status === 'banned') {
+      return {
+        success: false,
+        message: 'আপনার অ্যাকাউন্টটি ব্যান করা হয়েছে! অনুগ্রহ করে সাপোর্টে যোগাযোগ করুন।',
+      };
+    }
+
+    setUser(found);
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(found));
+
+    return {
+      success: true,
+      message: `স্বাগতম ${found.username}! সফলভাবে লগইন হয়েছে।`,
+    };
+  };
+
+  // -------------------------------------------------------------
+  // AUTHENTICATION: LOGOUT
+  // -------------------------------------------------------------
+  const logoutUser = () => {
+    setUser(null);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+  };
+
+  // -------------------------------------------------------------
   // USER ACTION: Join Match
+  // -------------------------------------------------------------
   const joinMatch = (matchId: string, gamerName: string, uid: string) => {
+    if (!user) {
+      return { success: false, message: 'ম্যাচে জয়েন করতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
+    }
+
     const match = matches.find((m) => m.id === matchId);
     if (!match) return { success: false, message: 'ম্যাচ পাওয়া যায়নি!' };
 
@@ -224,27 +404,21 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       prev.map((m) => (m.id === matchId ? { ...m, joinedPlayers: [...m.joinedPlayers, newEntry] } : m))
     );
 
-    setUser((prev) => ({
-      ...prev,
+    const updatedUser: UserProfile = {
+      ...user,
       depositBalance: newDeposit,
       winningBalance: newWinning,
-      matchesJoined: prev.matchesJoined + 1,
-      freeFireUid: uid || prev.freeFireUid,
-    }));
+      matchesJoined: user.matchesJoined + 1,
+      freeFireUid: uid || user.freeFireUid,
+    };
+    setUser(updatedUser);
 
     // Update in players directory
     setPlayers((prev) =>
-      prev.map((p) =>
-        p.id === user.id
-          ? {
-              ...p,
-              depositBalance: newDeposit,
-              winningBalance: newWinning,
-              matchesJoined: p.matchesJoined + 1,
-              freeFireUid: uid || p.freeFireUid,
-            }
-          : p
-      )
+      prev.map((p) => (p.id === user.id ? updatedUser : p))
+    );
+    setRegisteredUsers((prev) =>
+      prev.map((u) => (u.id === user.id ? updatedUser : u))
     );
 
     if (match.entryFee > 0) {
@@ -264,8 +438,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { success: true, message: 'সফলভাবে ম্যাচে জয়েন সম্পন্ন হয়েছে! রুম ডিটেলস সময়মতো চেক করুন।' };
   };
 
+  // -------------------------------------------------------------
   // USER ACTION: Submit Deposit (Add Money)
+  // -------------------------------------------------------------
   const submitDeposit = (method: 'bKash' | 'Nagad' | 'Rocket', amount: number, trxId: string, phone: string) => {
+    if (!user) {
+      return { success: false, message: 'ডিপোজিট করতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
+    }
     if (amount < 20) {
       return { success: false, message: 'সর্বনিম্ন ডিপোজিট ২০ টাকা।' };
     }
@@ -297,8 +476,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   };
 
+  // -------------------------------------------------------------
   // USER ACTION: Submit Withdraw
+  // -------------------------------------------------------------
   const submitWithdraw = (method: 'bKash' | 'Nagad' | 'Rocket', amount: number, phone: string) => {
+    if (!user) {
+      return { success: false, message: 'টাকা তুলতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
+    }
     if (amount < 50) {
       return { success: false, message: 'সর্বনিম্ন উত্তোলন ৫০ টাকা।' };
     }
@@ -312,13 +496,17 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'সঠিক বিকাশ/নগদ নাম্বার দিন।' };
     }
 
-    setUser((prev) => ({
-      ...prev,
-      winningBalance: prev.winningBalance - amount,
-    }));
+    const updatedUser = {
+      ...user,
+      winningBalance: user.winningBalance - amount,
+    };
+    setUser(updatedUser);
 
     setPlayers((prev) =>
-      prev.map((p) => (p.id === user.id ? { ...p, winningBalance: p.winningBalance - amount } : p))
+      prev.map((p) => (p.id === user.id ? updatedUser : p))
+    );
+    setRegisteredUsers((prev) =>
+      prev.map((u) => (u.id === user.id ? updatedUser : u))
     );
 
     const tx: Transaction = {
@@ -341,7 +529,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   };
 
+  // -------------------------------------------------------------
   // USER ACTION: Diamond Top-up
+  // -------------------------------------------------------------
   const buyDiamondTopup = (
     pkg: DiamondPackage,
     playerUid: string,
@@ -349,7 +539,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     trxId: string,
     phone: string
   ) => {
-    if (!playerUid || playerUid.length < 7) {
+    if (!user) {
+      return { success: false, message: 'ডায়মন্ড অর্ডার করতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
+    }
+    if (!playerUid || playerUid.length < 5) {
       return { success: false, message: 'সঠিক Free Fire Player UID দিন!' };
     }
     if (!trxId || trxId.length < 6) {
@@ -377,13 +570,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   };
 
+  // -------------------------------------------------------------
   // USER ACTION: Update Profile
+  // -------------------------------------------------------------
   const updateProfile = (data: Partial<UserProfile>) => {
-    setUser((prev) => ({ ...prev, ...data }));
-    setPlayers((prev) => prev.map((p) => (p.id === user.id ? { ...p, ...data } : p)));
+    if (!user) return;
+    const updatedUser = { ...user, ...data };
+    setUser(updatedUser);
+    setPlayers((prev) => prev.map((p) => (p.id === user.id ? updatedUser : p)));
+    setRegisteredUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
   };
 
+  // -------------------------------------------------------------
   // ADMIN MODULE 1: TOURNAMENT CONTROL
+  // -------------------------------------------------------------
   const createMatch = (matchData: Omit<TournamentMatch, 'id' | 'joinedPlayers' | 'status'>) => {
     const newMatch: TournamentMatch = {
       ...matchData,
@@ -407,12 +607,17 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           // Refund joined players automatically if entry fee > 0
           if (m.entryFee > 0 && m.joinedPlayers.length > 0) {
             m.joinedPlayers.forEach((player) => {
-              if (player.userId === user.id) {
-                setUser((u) => ({ ...u, depositBalance: u.depositBalance + m.entryFee }));
+              if (user && player.userId === user.id) {
+                setUser((u) => u ? { ...u, depositBalance: u.depositBalance + m.entryFee } : null);
               }
               setPlayers((ps) =>
                 ps.map((p) =>
                   p.id === player.userId ? { ...p, depositBalance: p.depositBalance + m.entryFee } : p
+                )
+              );
+              setRegisteredUsers((us) =>
+                us.map((u) =>
+                  u.id === player.userId ? { ...u, depositBalance: u.depositBalance + m.entryFee } : u
                 )
               );
             });
@@ -438,11 +643,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
   };
 
+  // -------------------------------------------------------------
   // ADMIN MODULE 2: PLAYER MANAGEMENT
+  // -------------------------------------------------------------
   const updatePlayerStatus = (playerId: string, status: 'active' | 'banned') => {
     setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, status } : p)));
-    if (playerId === user.id) {
-      setUser((prev) => ({ ...prev, status }));
+    setRegisteredUsers((prev) => prev.map((u) => (u.id === playerId ? { ...u, status } : u)));
+    if (user && playerId === user.id) {
+      setUser((prev) => (prev ? { ...prev, status } : null));
     }
   };
 
@@ -459,16 +667,34 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       )
     );
 
-    if (playerId === user.id) {
-      setUser((prev) => ({
-        ...prev,
-        depositBalance: Math.max(0, prev.depositBalance + depositDelta),
-        winningBalance: Math.max(0, prev.winningBalance + winningDelta),
-      }));
+    setRegisteredUsers((prev) =>
+      prev.map((u) =>
+        u.id === playerId
+          ? {
+              ...u,
+              depositBalance: Math.max(0, u.depositBalance + depositDelta),
+              winningBalance: Math.max(0, u.winningBalance + winningDelta),
+            }
+          : u
+      )
+    );
+
+    if (user && playerId === user.id) {
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              depositBalance: Math.max(0, prev.depositBalance + depositDelta),
+              winningBalance: Math.max(0, prev.winningBalance + winningDelta),
+            }
+          : null
+      );
     }
   };
 
+  // -------------------------------------------------------------
   // ADMIN MODULE 3: bKASH / NAGAD PAYMENT APPROVALS
+  // -------------------------------------------------------------
   const approveDeposit = (txId: string) => {
     const tx = transactions.find((t) => t.id === txId);
     if (!tx || tx.status !== 'pending') return;
@@ -478,14 +704,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
 
     // Credit to user deposit balance
-    if (tx.userId === user.id) {
-      setUser((prev) => ({
-        ...prev,
-        depositBalance: prev.depositBalance + tx.amount,
-      }));
+    if (user && tx.userId === user.id) {
+      setUser((prev) => (prev ? { ...prev, depositBalance: prev.depositBalance + tx.amount } : null));
     }
     setPlayers((prev) =>
       prev.map((p) => (p.id === tx.userId ? { ...p, depositBalance: p.depositBalance + tx.amount } : p))
+    );
+    setRegisteredUsers((prev) =>
+      prev.map((u) => (u.id === tx.userId ? { ...u, depositBalance: u.depositBalance + tx.amount } : u))
     );
   };
 
@@ -510,18 +736,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
 
     // Refund to user winning balance
-    if (tx.userId === user.id) {
-      setUser((prev) => ({
-        ...prev,
-        winningBalance: prev.winningBalance + tx.amount,
-      }));
+    if (user && tx.userId === user.id) {
+      setUser((prev) => (prev ? { ...prev, winningBalance: prev.winningBalance + tx.amount } : null));
     }
     setPlayers((prev) =>
       prev.map((p) => (p.id === tx.userId ? { ...p, winningBalance: p.winningBalance + tx.amount } : p))
     );
+    setRegisteredUsers((prev) =>
+      prev.map((u) => (u.id === tx.userId ? { ...u, winningBalance: u.winningBalance + tx.amount } : u))
+    );
   };
 
+  // -------------------------------------------------------------
   // ADMIN MODULE 4: ROOM ID & PASSWORD (WITH RELEASE TIMING)
+  // -------------------------------------------------------------
   const setRoomDetailsWithTiming = (
     matchId: string,
     roomId: string,
@@ -545,7 +773,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
   };
 
+  // -------------------------------------------------------------
   // ADMIN MODULE 5: RESULT MANAGEMENT (KILL, POSITION, POINTS, WINNER)
+  // -------------------------------------------------------------
   const publishResults = (
     matchId: string,
     results: MatchResultEntry[],
@@ -573,13 +803,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // Credit prizes to players in results
     results.forEach((entry) => {
       if (entry.prizeWon > 0) {
-        if (entry.uid === user.freeFireUid || entry.gamerName.toLowerCase() === user.username.toLowerCase()) {
-          setUser((u) => ({
-            ...u,
-            winningBalance: u.winningBalance + entry.prizeWon,
-            totalWonBDT: u.totalWonBDT + entry.prizeWon,
-            matchesWon: entry.position === 1 ? u.matchesWon + 1 : u.matchesWon,
-          }));
+        if (
+          user &&
+          (entry.uid === user.freeFireUid || entry.gamerName.toLowerCase() === user.username.toLowerCase())
+        ) {
+          setUser((u) =>
+            u
+              ? {
+                  ...u,
+                  winningBalance: u.winningBalance + entry.prizeWon,
+                  totalWonBDT: u.totalWonBDT + entry.prizeWon,
+                  matchesWon: entry.position === 1 ? u.matchesWon + 1 : u.matchesWon,
+                }
+              : null
+          );
 
           const tx: Transaction = {
             id: `tx-${Date.now()}-${entry.uid}`,
@@ -606,26 +843,43 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               : p
           )
         );
+
+        setRegisteredUsers((us) =>
+          us.map((u) =>
+            u.freeFireUid === entry.uid
+              ? {
+                  ...u,
+                  winningBalance: u.winningBalance + entry.prizeWon,
+                  totalWonBDT: u.totalWonBDT + entry.prizeWon,
+                  matchesWon: entry.position === 1 ? u.matchesWon + 1 : u.matchesWon,
+                }
+              : u
+          )
+        );
       }
     });
   };
 
+  // -------------------------------------------------------------
   // ADMIN MODULE 6: WEBSITE SETTINGS
+  // -------------------------------------------------------------
   const updateSettings = (newSettings: Partial<WebsiteSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
-  // Reset demo data
+  // Reset all data
   const resetAllData = () => {
     localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
     localStorage.removeItem(STORAGE_KEYS.MATCHES);
-    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    localStorage.removeItem(STORAGE_KEYS.REGISTERED_USERS);
     localStorage.removeItem(STORAGE_KEYS.PLAYERS);
     localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
     localStorage.removeItem(STORAGE_KEYS.SETTINGS);
     setCategories(INITIAL_CATEGORIES);
     setMatches(INITIAL_MATCHES);
-    setUser(INITIAL_USER);
+    setUser(null);
+    setRegisteredUsers([]);
     setPlayers(INITIAL_PLAYERS);
     setTransactions(INITIAL_TRANSACTIONS);
     setSettings(INITIAL_SETTINGS);
@@ -638,12 +892,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         matches,
         user,
         players,
+        registeredUsers,
         transactions,
         diamondPackages,
         topPlayers,
         settings,
         selectedCategory,
         setSelectedCategory,
+        registerUser,
+        loginUser,
+        logoutUser,
         joinMatch,
         submitDeposit,
         submitWithdraw,

@@ -11,13 +11,13 @@ interface JoinMatchModalProps {
 
 export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({ match, onClose, onOpenWallet }) => {
   const { user, joinMatch } = useTournament();
-  const [gamerName, setGamerName] = useState(user.username || '');
-  const [uid, setUid] = useState(user.freeFireUid || '');
+  const [gamerName, setGamerName] = useState(user?.username || '');
+  const [uid, setUid] = useState(user?.freeFireUid || '');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const totalBalance = user.depositBalance + user.winningBalance;
+  const totalBalance = user ? (user.depositBalance || 0) + (user.winningBalance || 0) : 0;
   const isBalanceEnough = totalBalance >= match.entryFee;
-  const isJoined = match.joinedPlayers.some((p) => p.userId === user.id || (uid && p.uid === uid));
+  const isJoined = match.joinedPlayers.some((p) => (user && p.userId === user.id) || (uid && p.uid === uid));
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
