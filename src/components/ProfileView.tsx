@@ -163,11 +163,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
             <div>
               <span className="font-bold text-sm text-slate-800 dark:text-slate-100">Withdraw</span>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                উইনিং টাকা বিকাশ/নগদে তুলুন
+                টাকা বিকাশ/নগদে তুলুন (সর্বনিম্ন ৳৫০)
               </p>
             </div>
           </div>
-          <span className="text-xs font-black text-emerald-500 tabular-nums">৳{user.winningBalance}</span>
+          <span className="text-xs font-black text-emerald-500 tabular-nums">৳{totalBalance}</span>
         </button>
 
         {/* My Profile item */}

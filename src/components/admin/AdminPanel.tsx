@@ -144,10 +144,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const [cancellingMatch, setCancellingMatch] = useState<TournamentMatch | null>(null);
   const [cancelReasonInput, setCancelReasonInput] = useState('অনিবার্য কারণে ম্যাচটি বাতিল করা হয়েছে এবং এন্ট্রি ফি রিফান্ড করা হলো।');
 
-  // Balance adjustment modal
+  // Balance adjustment modal: 3 options (Add, Remove, Edit)
   const [adjustingPlayer, setAdjustingPlayer] = useState<UserProfile | null>(null);
-  const [adjustDepositAmount, setAdjustDepositAmount] = useState<number>(0);
-  const [adjustWinningAmount, setAdjustWinningAmount] = useState<number>(0);
+  const [adjustMode, setAdjustMode] = useState<'add' | 'remove' | 'edit'>('add');
+  const [adjustAmountInput, setAdjustAmountInput] = useState<number>(100);
 
   // Payment evidence modal
   const [viewingPaymentTx, setViewingPaymentTx] = useState<any | null>(null);
@@ -843,19 +843,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                           </button>
                         </div>
 
-                      {/* Balances & Stats */}
-                      <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-850 text-center text-xs">
+                      {/* Balances & Stats (Unified Balance: Main & Winning are one) */}
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-center text-xs">
                         <div>
-                          <div className="text-[10px] text-slate-400">ডিপোজিট ব্যালেন্স</div>
-                          <div className="font-bold text-sky-400 tabular-nums">৳{p.depositBalance}</div>
+                          <div className="text-[10px] text-slate-400">একাউন্ট ব্যালেন্স</div>
+                          <div className="font-black text-sm text-emerald-400 tabular-nums">
+                            ৳{(p.depositBalance || 0) + (p.winningBalance || 0)}
+                          </div>
                         </div>
-                        <div className="border-x border-slate-800">
-                          <div className="text-[10px] text-slate-400">উইনিং ব্যালেন্স</div>
-                          <div className="font-bold text-emerald-400 tabular-nums">৳{p.winningBalance}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-slate-400">মোট জয়লাভ</div>
-                          <div className="font-bold text-amber-400 tabular-nums">৳{p.totalWonBDT}</div>
+                        <div className="border-l border-slate-800">
+                          <div className="text-[10px] text-slate-400">মোট জয়লাভ (Prize)</div>
+                          <div className="font-black text-sm text-amber-400 tabular-nums">৳{p.totalWonBDT || 0}</div>
                         </div>
                       </div>
 
@@ -866,12 +864,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                           <button
                             onClick={() => {
                               setAdjustingPlayer(p);
-                              setAdjustDepositAmount(0);
-                              setAdjustWinningAmount(0);
+                              setAdjustMode('add');
+                              setAdjustAmountInput(100);
                             }}
-                            className="text-xs text-sky-400 hover:text-sky-300 font-bold cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-sky-950 hover:bg-sky-900 border border-sky-700 text-xs text-sky-300 font-bold cursor-pointer transition-colors"
                           >
-                            + ব্যালেন্স এড/কাটা
+                            ⚙️ ব্যালেন্স এডজাস্ট (৩ অপশন)
                           </button>
                         </div>
                         <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
@@ -1797,63 +1795,138 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
         </div>
       )}
 
-      {/* MODAL 3: ADJUST PLAYER BALANCE */}
-      {adjustingPlayer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-700 p-5 shadow-2xl">
-            <h3 className="font-black text-sm text-white mb-1">ব্যালেন্স এডজাস্ট করুন</h3>
-            <p className="text-xs text-sky-400 font-bold mb-3">{adjustingPlayer.name} ({adjustingPlayer.freeFireUid})</p>
+      {/* MODAL 3: ADJUST PLAYER BALANCE (3 Options: Add, Remove, Edit) */}
+      {adjustingPlayer && (() => {
+        const currentBal = (adjustingPlayer.depositBalance || 0) + (adjustingPlayer.winningBalance || 0);
+        const amountNum = Math.abs(adjustAmountInput || 0);
+        const previewBal =
+          adjustMode === 'add'
+            ? currentBal + amountNum
+            : adjustMode === 'remove'
+            ? Math.max(0, currentBal - amountNum)
+            : Math.max(0, adjustAmountInput || 0);
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">
-                  ডিপোজিট ব্যালেন্সে যোগ বা বিয়োগ (টাকা):
-                </label>
-                <input
-                  type="number"
-                  value={adjustDepositAmount}
-                  onChange={(e) => setAdjustDepositAmount(Number(e.target.value))}
-                  placeholder="যেমন: +100 বা -50"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold"
-                />
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-700 p-5 shadow-2xl animate-fadeIn">
+              <h3 className="font-black text-base text-white mb-0.5">ব্যালেন্স এডজাস্ট করুন</h3>
+              <p className="text-xs text-sky-400 font-bold mb-3">
+                {adjustingPlayer.username || adjustingPlayer.name} ({adjustingPlayer.freeFireUid})
+              </p>
+
+              {/* Current Unified Balance */}
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 mb-3 flex items-center justify-between">
+                <span className="text-xs text-slate-400">বর্তমান মোট ব্যালেন্স:</span>
+                <span className="font-black text-sm text-emerald-400 tabular-nums">৳{currentBal}</span>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">
-                  উইনিং ব্যালেন্সে যোগ বা বিয়োগ (টাকা):
-                </label>
-                <input
-                  type="number"
-                  value={adjustWinningAmount}
-                  onChange={(e) => setAdjustWinningAmount(Number(e.target.value))}
-                  placeholder="যেমন: +200 বা -100"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
+              {/* 3 Option Selector Tabs (Add, Remove, Edit) */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950 rounded-xl mb-3 border border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setAdjustingPlayer(null)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold"
+                  onClick={() => setAdjustMode('add')}
+                  className={`py-2 text-[11px] font-black rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                    adjustMode === 'add'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  বাতিল
+                  <span>➕ যোগ</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    adjustPlayerBalance(adjustingPlayer.id, adjustDepositAmount, adjustWinningAmount);
-                    setAdjustingPlayer(null);
-                  }}
-                  className="px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-black"
+                  onClick={() => setAdjustMode('remove')}
+                  className={`py-2 text-[11px] font-black rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                    adjustMode === 'remove'
+                      ? 'bg-rose-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  ব্যালেন্স আপডেট করুন
+                  <span>➖ কর্তন</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustMode('edit')}
+                  className={`py-2 text-[11px] font-black rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                    adjustMode === 'edit'
+                      ? 'bg-sky-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>✏️ এডিট</span>
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">
+                    {adjustMode === 'add'
+                      ? 'কত টাকা যোগ করতে চান (৳):'
+                      : adjustMode === 'remove'
+                      ? 'কত টাকা কর্তন বা মাইনাস করতে চান (৳):'
+                      : 'সরাসরি নতুন ব্যালেন্স সেট করুন (৳):'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={adjustAmountInput}
+                    onChange={(e) => setAdjustAmountInput(Number(e.target.value))}
+                    placeholder="টাকার পরিমাণ লিখুন"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-black text-sm focus:outline-none focus:border-sky-500"
+                    required
+                  />
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[50, 100, 200, 500, 1000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setAdjustAmountInput(amt)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 cursor-pointer"
+                    >
+                      ৳{amt}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Real-time Preview Banner */}
+                <div className="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">আপডেটের পর ব্যালেন্স হবে:</span>
+                  <span className="font-black text-sky-300 tabular-nums text-sm">৳{previewBal}</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustingPlayer(null)}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer"
+                  >
+                    বাতিল
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      adjustPlayerBalance(adjustingPlayer.id, adjustMode, adjustAmountInput);
+                      setAdjustingPlayer(null);
+                    }}
+                    className={`px-4 py-2 rounded-xl text-white font-black shadow-md cursor-pointer active:scale-95 transition-all ${
+                      adjustMode === 'add'
+                        ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40'
+                        : adjustMode === 'remove'
+                        ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-900/40'
+                        : 'bg-sky-500 hover:bg-sky-400 shadow-sky-900/40'
+                    }`}
+                  >
+                    ব্যালেন্স আপডেট করুন
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 4: PAYMENT REJECTION REASON */}
       {viewingPaymentTx && (
