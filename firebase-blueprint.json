@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered player profile and balance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "password": { "type": "string" },
+        "freeFireUid": { "type": "string" },
+        "depositBalance": { "type": "number" },
+        "winningBalance": { "type": "number" },
+        "matchesJoined": { "type": "number" },
+        "matchesWon": { "type": "number" },
+        "totalWonBDT": { "type": "number" },
+        "avatar": { "type": "string" },
+        "status": { "type": "string" },
+        "registeredAt": { "type": "string" }
+      },
+      "required": ["id", "username", "freeFireUid"]
+    },
+    "TournamentMatch": {
+      "title": "TournamentMatch",
+      "description": "Tournament match details, joined players, room credentials and results",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "categoryName": { "type": "string" },
+        "title": { "type": "string" },
+        "matchNumber": { "type": "number" },
+        "entryFee": { "type": "number" },
+        "perKill": { "type": "number" },
+        "totalPrize": { "type": "number" },
+        "map": { "type": "string" },
+        "matchType": { "type": "string" },
+        "version": { "type": "string" },
+        "scheduleTime": { "type": "string" },
+        "totalSlots": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "categoryId", "title", "status"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Payment requests and wallet balance adjustments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "method": { "type": "string" },
+        "trxId": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount", "status"]
+    },
+    "WebsiteSettings": {
+      "title": "WebsiteSettings",
+      "description": "Global website settings and payment phone numbers",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string" },
+        "bKashNumber": { "type": "string" },
+        "nagadNumber": { "type": "string" },
+        "rocketNumber": { "type": "string" },
+        "noticeText": { "type": "string" }
+      },
+      "required": ["siteName"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Collection of user profiles across devices"
+    },
+    "/matches/{matchId}": {
+      "schema": { "$ref": "#/entities/TournamentMatch" },
+      "description": "Collection of live tournament matches synced across all devices"
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Collection of deposit/withdraw/topup payment requests synced to admin"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/WebsiteSettings" },
+      "description": "Site global configuration and hotlines"
+    }
+  }
+}

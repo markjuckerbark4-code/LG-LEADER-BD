@@ -12,13 +12,23 @@ import {
 import {
   INITIAL_CATEGORIES,
   INITIAL_MATCHES,
-  INITIAL_USER,
   INITIAL_TRANSACTIONS,
   INITIAL_DIAMONDS,
   INITIAL_TOP_PLAYERS,
   INITIAL_SETTINGS,
   INITIAL_PLAYERS,
 } from '../data/initialData';
+import { db } from '../firebase/config';
+import {
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  getDocFromServer,
+} from 'firebase/firestore';
 
 interface TournamentContextType {
   categories: GameCategory[];
@@ -96,122 +106,155 @@ interface TournamentContextType {
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  CATEGORIES: 'lg_leader_categories_v2',
-  MATCHES: 'lg_leader_matches_v2',
-  ACTIVE_USER: 'lg_leader_active_user_v3',
-  REGISTERED_USERS: 'lg_leader_registered_users_v3',
-  PLAYERS: 'lg_leader_players_clean_v4',
-  TRANSACTIONS: 'lg_leader_transactions_clean_v3',
-  SETTINGS: 'lg_leader_settings_v2',
+  ACTIVE_USER: 'lg_leader_active_user_v5',
+  LOCAL_BACKUP_SETTINGS: 'lg_leader_settings_v5',
 };
 
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [categories, setCategories] = useState<GameCategory[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-  });
+  const [categories, setCategories] = useState<GameCategory[]>(INITIAL_CATEGORIES);
+  const [matches, setMatches] = useState<TournamentMatch[]>(INITIAL_MATCHES);
+  const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(INITIAL_PLAYERS);
+  const [players, setPlayers] = useState<UserProfile[]>(INITIAL_PLAYERS);
+  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [settings, setSettings] = useState<WebsiteSettings>(INITIAL_SETTINGS);
+  const [selectedCategory, setSelectedCategory] = useState<GameCategory | null>(null);
 
-  const [matches, setMatches] = useState<TournamentMatch[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.MATCHES);
-    return saved ? JSON.parse(saved) : INITIAL_MATCHES;
-  });
-
-  // Registered Accounts Database
-  const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.REGISTERED_USERS);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-
-  // Currently logged-in active user (starts null if not logged in)
+  // Active user session saved locally on device
   const [user, setUser] = useState<UserProfile | null>(() => {
-    // Clear old demo user keys
-    localStorage.removeItem('lg_leader_user_v2');
-    localStorage.removeItem('lg_leader_user_v1');
-    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
+      if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.username) return parsed;
-      } catch {
-        return null;
+        if (parsed && parsed.id) return parsed;
       }
+    } catch {
+      return null;
     }
     return null;
   });
 
-  // Players Directory (displayed in Admin Panel)
-  const [players, setPlayers] = useState<UserProfile[]>(() => {
-    // Clear old demo players key
-    localStorage.removeItem('lg_leader_players_v2');
-    localStorage.removeItem('lg_leader_players_v1');
-    const saved = localStorage.getItem(STORAGE_KEYS.PLAYERS);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_PLAYERS;
-      }
-    }
-    return INITIAL_PLAYERS;
-  });
-
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    localStorage.removeItem('lg_leader_transactions_v2');
-    localStorage.removeItem('lg_leader_transactions_v1');
-    const saved = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
-  });
-
-  const [settings, setSettings] = useState<WebsiteSettings>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
-  });
-
-  const [selectedCategory, setSelectedCategory] = useState<GameCategory | null>(null);
   const diamondPackages = INITIAL_DIAMONDS;
   const topPlayers = INITIAL_TOP_PLAYERS;
 
-  // Persist states
+  // 1. Test Firestore Connection per Skill specifications
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
-  }, [categories]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
-  }, [matches]);
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.warn('Firestore offline fallback active.');
+        }
+      }
     }
-  }, [user]);
+    testConnection();
+  }, []);
 
+  // 2. Real-time Matches Listener (All devices sync instantly when admin edits/adds matches)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(registeredUsers));
-  }, [registeredUsers]);
+    const unsub = onSnapshot(
+      collection(db, 'matches'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          // Initial seeding to Firestore so matches exist across all phones
+          INITIAL_MATCHES.forEach((m) => {
+            setDoc(doc(db, 'matches', m.id), m).catch(() => {});
+          });
+          setMatches(INITIAL_MATCHES);
+        } else {
+          const list = snapshot.docs.map((d) => d.data() as TournamentMatch);
+          list.sort((a, b) => (b.matchNumber || 0) - (a.matchNumber || 0));
+          setMatches(list);
+        }
+      },
+      (err) => {
+        console.warn('Real-time matches error:', err);
+      }
+    );
+    return () => unsub();
+  }, []);
 
+  // 3. Real-time Users Listener (Accounts created on any phone appear in Admin Panel immediately)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(players));
-  }, [players]);
+    const unsub = onSnapshot(
+      collection(db, 'users'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const list = snapshot.docs.map((d) => d.data() as UserProfile);
+          setRegisteredUsers(list);
+          setPlayers(list);
 
+          // If current logged-in user exists, update their balance in real-time!
+          if (user?.id) {
+            const current = list.find((u) => u.id === user.id);
+            if (current) {
+              setUser(current);
+              localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(current));
+            }
+          }
+        } else {
+          INITIAL_PLAYERS.forEach((p) => {
+            setDoc(doc(db, 'users', p.id), p).catch(() => {});
+          });
+          setRegisteredUsers(INITIAL_PLAYERS);
+          setPlayers(INITIAL_PLAYERS);
+        }
+      },
+      (err) => {
+        console.warn('Real-time users error:', err);
+      }
+    );
+    return () => unsub();
+  }, [user?.id]);
+
+  // 4. Real-time Transactions Listener (Payment requests from any device sync to Admin in real-time)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-  }, [transactions]);
+    const unsub = onSnapshot(
+      collection(db, 'transactions'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const list = snapshot.docs.map((d) => d.data() as Transaction);
+          // Sort newest first
+          list.sort((a, b) => {
+            const timeA = new Date(a.date).getTime() || 0;
+            const timeB = new Date(b.date).getTime() || 0;
+            return timeB - timeA;
+          });
+          setTransactions(list);
+        } else {
+          INITIAL_TRANSACTIONS.forEach((t) => {
+            setDoc(doc(db, 'transactions', t.id), t).catch(() => {});
+          });
+          setTransactions(INITIAL_TRANSACTIONS);
+        }
+      },
+      (err) => {
+        console.warn('Real-time transactions error:', err);
+      }
+    );
+    return () => unsub();
+  }, []);
 
+  // 5. Real-time Settings Listener (Admin updates hotlines, bKash numbers, marquee notices -> all phones update)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-  }, [settings]);
+    const unsub = onSnapshot(
+      doc(db, 'settings', 'global'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setSettings(docSnap.data() as WebsiteSettings);
+        } else {
+          setDoc(doc(db, 'settings', 'global'), INITIAL_SETTINGS).catch(() => {});
+          setSettings(INITIAL_SETTINGS);
+        }
+      },
+      (err) => {
+        console.warn('Real-time settings error:', err);
+      }
+    );
+    return () => unsub();
+  }, []);
 
-  // Sync matches count with categories
+  // Sync category match counts dynamically
   useEffect(() => {
     setCategories((prev) =>
       prev.map((cat) => {
@@ -227,6 +270,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
   }, [matches]);
 
+  // Persist current session locally
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    }
+  }, [user]);
+
   // -------------------------------------------------------------
   // AUTHENTICATION: REGISTER
   // -------------------------------------------------------------
@@ -240,7 +292,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const cleanUsername = data.username.trim();
     const cleanUid = data.freeFireUid.trim();
 
-    // Check if email already registered
+    // Check if email already registered across all devices
     const existsEmail = registeredUsers.some((u) => u.email?.toLowerCase() === cleanEmail);
     if (existsEmail) {
       return {
@@ -284,19 +336,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }),
     };
 
-    // 1. Add to registered users database
-    const updatedUsers = [...registeredUsers, newUser];
-    setRegisteredUsers(updatedUsers);
-    localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(updatedUsers));
+    // 1. Write to Cloud Firestore so it shows on Admin Panel across ANY device instantly!
+    setDoc(doc(db, 'users', newUser.id), newUser).catch((e) => {
+      console.warn('Error saving user to Firestore:', e);
+    });
 
-    // 2. Add to players directory for Admin Panel Player Management
-    const updatedPlayers = [newUser, ...players.filter((p) => p.id !== newUser.id)];
-    setPlayers(updatedPlayers);
-    localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(updatedPlayers));
-
-    // 3. Set as active logged-in user
+    // 2. Set as active user on this phone
     setUser(newUser);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(newUser));
+    setRegisteredUsers((prev) => [newUser, ...prev]);
+    setPlayers((prev) => [newUser, ...prev]);
 
     return {
       success: true,
@@ -347,7 +396,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // -------------------------------------------------------------
-  // USER ACTION: Join Match
+  // USER ACTION: Join Match (Deducts balance & syncs to cloud)
   // -------------------------------------------------------------
   const joinMatch = (matchId: string, gamerName: string, uid: string) => {
     if (!user) {
@@ -378,7 +427,6 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
     }
 
-    // Deduct fee: first from depositBalance, then from winningBalance
     let feeRemaining = match.entryFee;
     let newDeposit = user.depositBalance;
     let newWinning = user.winningBalance;
@@ -400,9 +448,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       joinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMatches((prev) =>
-      prev.map((m) => (m.id === matchId ? { ...m, joinedPlayers: [...m.joinedPlayers, newEntry] } : m))
-    );
+    const updatedJoinedPlayers = [...match.joinedPlayers, newEntry];
 
     const updatedUser: UserProfile = {
       ...user,
@@ -413,26 +459,32 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
     setUser(updatedUser);
 
-    // Update in players directory
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === user.id ? updatedUser : p))
+    const tx: Transaction = {
+      id: `tx-${Date.now()}`,
+      userId: user.id,
+      userName: user.username,
+      type: 'match_join',
+      amount: match.entryFee,
+      status: 'approved',
+      date: new Date().toLocaleString(),
+      note: `Joined match: ${match.title}`,
+    };
+
+    // Sync to Firestore in real-time
+    updateDoc(doc(db, 'matches', matchId), { joinedPlayers: updatedJoinedPlayers }).catch((err) =>
+      console.warn('Error syncing join match to Firestore:', err)
     );
-    setRegisteredUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? updatedUser : u))
-    );
+    updateDoc(doc(db, 'users', user.id), {
+      depositBalance: newDeposit,
+      winningBalance: newWinning,
+      matchesJoined: updatedUser.matchesJoined,
+      freeFireUid: updatedUser.freeFireUid,
+    }).catch((err) => console.warn('Error updating user on join:', err));
 
     if (match.entryFee > 0) {
-      const tx: Transaction = {
-        id: `tx-${Date.now()}`,
-        userId: user.id,
-        userName: user.username,
-        type: 'match_join',
-        amount: match.entryFee,
-        status: 'approved',
-        date: new Date().toLocaleString(),
-        note: `Joined match: ${match.title}`,
-      };
-      setTransactions((prev) => [tx, ...prev]);
+      setDoc(doc(db, 'transactions', tx.id), tx).catch((err) =>
+        console.warn('Error saving join tx:', err)
+      );
     }
 
     return { success: true, message: 'সফলভাবে ম্যাচে জয়েন সম্পন্ন হয়েছে! রুম ডিটেলস সময়মতো চেক করুন।' };
@@ -441,7 +493,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // -------------------------------------------------------------
   // USER ACTION: Submit Deposit (Add Money)
   // -------------------------------------------------------------
-  const submitDeposit = (method: 'bKash' | 'Nagad' | 'Rocket', amount: number, trxId: string, phone: string) => {
+  const submitDeposit = (
+    method: 'bKash' | 'Nagad' | 'Rocket',
+    amount: number,
+    trxId: string,
+    phone: string
+  ) => {
     if (!user) {
       return { success: false, message: 'ডিপোজিট করতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
     }
@@ -469,7 +526,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       evidenceNote: `User submitted from phone: ${phone}, Method: ${method}`,
     };
 
+    // Save to Firestore so Admin sees payment request INSTANTLY on any device!
+    setDoc(doc(db, 'transactions', tx.id), tx).catch((err) =>
+      console.warn('Error writing deposit to Firestore:', err)
+    );
+
     setTransactions((prev) => [tx, ...prev]);
+
     return {
       success: true,
       message: 'ডিপোজিট রিকোয়েস্ট সফলভাবে জমা হয়েছে! এডমিন যাচাই করে ২-৫ মিনিটের মধ্যে ব্যালেন্স যোগ করে দেবে।',
@@ -479,7 +542,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // -------------------------------------------------------------
   // USER ACTION: Submit Withdraw
   // -------------------------------------------------------------
-  const submitWithdraw = (method: 'bKash' | 'Nagad' | 'Rocket', amount: number, phone: string) => {
+  const submitWithdraw = (
+    method: 'bKash' | 'Nagad' | 'Rocket',
+    amount: number,
+    phone: string
+  ) => {
     if (!user) {
       return { success: false, message: 'টাকা তুলতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
     }
@@ -496,18 +563,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'সঠিক বিকাশ/নগদ নাম্বার দিন।' };
     }
 
+    const newWinningBalance = user.winningBalance - amount;
     const updatedUser = {
       ...user,
-      winningBalance: user.winningBalance - amount,
+      winningBalance: newWinningBalance,
     };
     setUser(updatedUser);
-
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === user.id ? updatedUser : p))
-    );
-    setRegisteredUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? updatedUser : u))
-    );
 
     const tx: Transaction = {
       id: `tx-${Date.now()}`,
@@ -522,7 +583,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       note: `Requested cashout to ${method}: ${phone}`,
     };
 
+    updateDoc(doc(db, 'users', user.id), { winningBalance: newWinningBalance }).catch((err) =>
+      console.warn('Error updating winning balance on withdraw:', err)
+    );
+    setDoc(doc(db, 'transactions', tx.id), tx).catch((err) =>
+      console.warn('Error writing withdraw to Firestore:', err)
+    );
+
     setTransactions((prev) => [tx, ...prev]);
+
     return {
       success: true,
       message: `৳${amount} উত্তোলন রিকোয়েস্ট জমা হয়েছে! এডমিন দ্রুত টাকা পাঠিয়ে দেবে।`,
@@ -563,7 +632,12 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       note: `Diamond Order: ${pkg.title} (${pkg.diamonds} Diamonds) for UID: ${playerUid}`,
     };
 
+    setDoc(doc(db, 'transactions', tx.id), tx).catch((err) =>
+      console.warn('Error writing diamond topup to Firestore:', err)
+    );
+
     setTransactions((prev) => [tx, ...prev]);
+
     return {
       success: true,
       message: `${pkg.title} অর্ডার সম্পন্ন হয়েছে! এডমিন দ্রুত আপনার UID তে ডায়মন্ড টপআপ করে দিবে।`,
@@ -573,18 +647,22 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // -------------------------------------------------------------
   // USER ACTION: Update Profile
   // -------------------------------------------------------------
-  const updateProfile = (data: Partial<UserProfile>) => {
+  const updateProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
     const updatedUser = { ...user, ...data };
     setUser(updatedUser);
-    setPlayers((prev) => prev.map((p) => (p.id === user.id ? updatedUser : p)));
-    setRegisteredUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
+
+    try {
+      await updateDoc(doc(db, 'users', user.id), data);
+    } catch (err) {
+      console.warn('Error updating profile in Firestore:', err);
+    }
   };
 
   // -------------------------------------------------------------
-  // ADMIN MODULE 1: TOURNAMENT CONTROL
+  // ADMIN MODULE 1: TOURNAMENT CONTROL (Instant sync across all devices)
   // -------------------------------------------------------------
-  const createMatch = (matchData: Omit<TournamentMatch, 'id' | 'joinedPlayers' | 'status'>) => {
+  const createMatch = async (matchData: Omit<TournamentMatch, 'id' | 'joinedPlayers' | 'status'>) => {
     const newMatch: TournamentMatch = {
       ...matchData,
       id: `match-${Date.now()}`,
@@ -593,179 +671,252 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       roomReleaseTiming: '10min',
       isRoomVisibleToPlayers: false,
     };
+
+    try {
+      await setDoc(doc(db, 'matches', newMatch.id), newMatch);
+    } catch (err) {
+      console.warn('Error creating match in Firestore:', err);
+    }
+
     setMatches((prev) => [newMatch, ...prev]);
   };
 
-  const editMatch = (matchId: string, updated: Partial<TournamentMatch>) => {
+  const editMatch = async (matchId: string, updated: Partial<TournamentMatch>) => {
+    try {
+      await updateDoc(doc(db, 'matches', matchId), updated);
+    } catch (err) {
+      console.warn('Error updating match in Firestore:', err);
+    }
+
     setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, ...updated } : m)));
   };
 
-  const cancelMatch = (matchId: string, reason: string) => {
-    setMatches((prev) =>
-      prev.map((m) => {
-        if (m.id === matchId) {
-          // Refund joined players automatically if entry fee > 0
-          if (m.entryFee > 0 && m.joinedPlayers.length > 0) {
-            m.joinedPlayers.forEach((player) => {
-              if (user && player.userId === user.id) {
-                setUser((u) => u ? { ...u, depositBalance: u.depositBalance + m.entryFee } : null);
-              }
-              setPlayers((ps) =>
-                ps.map((p) =>
-                  p.id === player.userId ? { ...p, depositBalance: p.depositBalance + m.entryFee } : p
-                )
-              );
-              setRegisteredUsers((us) =>
-                us.map((u) =>
-                  u.id === player.userId ? { ...u, depositBalance: u.depositBalance + m.entryFee } : u
-                )
-              );
-            });
-          }
-          return {
-            ...m,
-            status: 'cancelled',
-            cancelReason: reason || 'ম্যাচ বাতিল করা হয়েছে এবং এন্ট্রি ফি রিফান্ড করা হয়েছে।',
-          };
+  const cancelMatch = async (matchId: string, reason: string) => {
+    const m = matches.find((match) => match.id === matchId);
+    if (!m) return;
+
+    // Refund joined players
+    if (m.entryFee > 0 && m.joinedPlayers.length > 0) {
+      m.joinedPlayers.forEach(async (player) => {
+        const u = registeredUsers.find((userDoc) => userDoc.id === player.userId);
+        if (u) {
+          const newBalance = u.depositBalance + m.entryFee;
+          try {
+            await updateDoc(doc(db, 'users', u.id), { depositBalance: newBalance });
+          } catch (e) {}
         }
-        return m;
-      })
-    );
+      });
+    }
+
+    const cancelUpdate = {
+      status: 'cancelled' as const,
+      cancelReason: reason || 'ম্যাচ বাতিল করা হয়েছে এবং এন্ট্রি ফি রিফান্ড করা হয়েছে।',
+    };
+
+    try {
+      await updateDoc(doc(db, 'matches', matchId), cancelUpdate);
+    } catch (err) {
+      console.warn('Error cancelling match in Firestore:', err);
+    }
+
+    setMatches((prev) => prev.map((item) => (item.id === matchId ? { ...item, ...cancelUpdate } : item)));
   };
 
-  const deleteMatch = (matchId: string) => {
+  const deleteMatch = async (matchId: string) => {
+    try {
+      await deleteDoc(doc(db, 'matches', matchId));
+    } catch (err) {
+      console.warn('Error deleting match in Firestore:', err);
+    }
+
     setMatches((prev) => prev.filter((m) => m.id !== matchId));
   };
 
-  const archiveMatch = (matchId: string) => {
+  const archiveMatch = async (matchId: string) => {
+    try {
+      await updateDoc(doc(db, 'matches', matchId), { status: 'archived' });
+    } catch (err) {
+      console.warn('Error archiving match in Firestore:', err);
+    }
+
     setMatches((prev) =>
       prev.map((m) => (m.id === matchId ? { ...m, status: 'archived' } : m))
     );
   };
 
   // -------------------------------------------------------------
-  // ADMIN MODULE 2: PLAYER MANAGEMENT
+  // ADMIN MODULE 2: PLAYER MANAGEMENT (Instant balance & ban sync)
   // -------------------------------------------------------------
-  const updatePlayerStatus = (playerId: string, status: 'active' | 'banned') => {
+  const updatePlayerStatus = async (playerId: string, status: 'active' | 'banned') => {
+    try {
+      await updateDoc(doc(db, 'users', playerId), { status });
+    } catch (err) {
+      console.warn('Error updating player status in Firestore:', err);
+    }
+
     setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, status } : p)));
     setRegisteredUsers((prev) => prev.map((u) => (u.id === playerId ? { ...u, status } : u)));
-    if (user && playerId === user.id) {
-      setUser((prev) => (prev ? { ...prev, status } : null));
-    }
   };
 
-  const adjustPlayerBalance = (playerId: string, depositDelta: number, winningDelta: number) => {
+  const adjustPlayerBalance = async (playerId: string, depositDelta: number, winningDelta: number) => {
+    const target = registeredUsers.find((u) => u.id === playerId);
+    if (!target) return;
+
+    const newDeposit = Math.max(0, target.depositBalance + depositDelta);
+    const newWinning = Math.max(0, target.winningBalance + winningDelta);
+
+    try {
+      await updateDoc(doc(db, 'users', playerId), {
+        depositBalance: newDeposit,
+        winningBalance: newWinning,
+      });
+    } catch (err) {
+      console.warn('Error adjusting balance in Firestore:', err);
+    }
+
     setPlayers((prev) =>
       prev.map((p) =>
-        p.id === playerId
-          ? {
-              ...p,
-              depositBalance: Math.max(0, p.depositBalance + depositDelta),
-              winningBalance: Math.max(0, p.winningBalance + winningDelta),
-            }
-          : p
+        p.id === playerId ? { ...p, depositBalance: newDeposit, winningBalance: newWinning } : p
       )
     );
-
     setRegisteredUsers((prev) =>
       prev.map((u) =>
-        u.id === playerId
-          ? {
-              ...u,
-              depositBalance: Math.max(0, u.depositBalance + depositDelta),
-              winningBalance: Math.max(0, u.winningBalance + winningDelta),
-            }
-          : u
+        u.id === playerId ? { ...u, depositBalance: newDeposit, winningBalance: newWinning } : u
       )
     );
-
-    if (user && playerId === user.id) {
-      setUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              depositBalance: Math.max(0, prev.depositBalance + depositDelta),
-              winningBalance: Math.max(0, prev.winningBalance + winningDelta),
-            }
-          : null
-      );
-    }
   };
 
   // -------------------------------------------------------------
   // ADMIN MODULE 3: bKASH / NAGAD PAYMENT APPROVALS
   // -------------------------------------------------------------
-  const approveDeposit = (txId: string) => {
+  const approveDeposit = async (txId: string) => {
     const tx = transactions.find((t) => t.id === txId);
     if (!tx || tx.status !== 'pending') return;
 
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, status: 'approved', note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত' } : t))
-    );
+    try {
+      await updateDoc(doc(db, 'transactions', txId), {
+        status: 'approved',
+        note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত',
+      });
 
-    // Credit to user deposit balance
-    if (user && tx.userId === user.id) {
-      setUser((prev) => (prev ? { ...prev, depositBalance: prev.depositBalance + tx.amount } : null));
+      const userTarget = registeredUsers.find((u) => u.id === tx.userId);
+      if (userTarget) {
+        const newBalance = userTarget.depositBalance + tx.amount;
+        await updateDoc(doc(db, 'users', tx.userId), { depositBalance: newBalance });
+      }
+    } catch (err) {
+      console.warn('Error approving deposit in Firestore:', err);
     }
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === tx.userId ? { ...p, depositBalance: p.depositBalance + tx.amount } : p))
-    );
-    setRegisteredUsers((prev) =>
-      prev.map((u) => (u.id === tx.userId ? { ...u, depositBalance: u.depositBalance + tx.amount } : u))
+
+    setTransactions((prev) =>
+      prev.map((t) =>
+        t.id === txId ? { ...t, status: 'approved', note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত' } : t
+      )
     );
   };
 
-  const rejectDeposit = (txId: string, reason = 'ভুল TrxID বা অ্যাকাউন্টে টাকা ক্রেডিট হয়নি') => {
+  const rejectDeposit = async (txId: string, reason = 'ভুল TrxID বা অ্যাকাউন্টে টাকা ক্রেডিট হয়নি') => {
+    try {
+      await updateDoc(doc(db, 'transactions', txId), {
+        status: 'rejected',
+        note: reason,
+      });
+    } catch (err) {
+      console.warn('Error rejecting deposit in Firestore:', err);
+    }
+
     setTransactions((prev) =>
       prev.map((t) => (t.id === txId ? { ...t, status: 'rejected', note: reason } : t))
     );
   };
 
-  const approveWithdraw = (txId: string) => {
+  const approveWithdraw = async (txId: string) => {
+    try {
+      await updateDoc(doc(db, 'transactions', txId), {
+        status: 'approved',
+        note: 'টাকা বিকাশ/নগদ একাউন্টে সফলভাবে পাঠানো হয়েছে',
+      });
+    } catch (err) {
+      console.warn('Error approving withdraw in Firestore:', err);
+    }
+
     setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, status: 'approved', note: 'টাকা বিকাশ/নগদ একাউন্টে সফলভাবে পাঠানো হয়েছে' } : t))
+      prev.map((t) =>
+        t.id === txId
+          ? { ...t, status: 'approved', note: 'টাকা বিকাশ/নগদ একাউন্টে সফলভাবে পাঠানো হয়েছে' }
+          : t
+      )
     );
   };
 
-  const rejectWithdraw = (txId: string, reason = 'নাম্বার অকার্যকর বা তথ্য অমিল থাকায় রিফান্ড করা হলো') => {
+  const rejectWithdraw = async (
+    txId: string,
+    reason = 'নাম্বার অকার্যকর বা তথ্য অমিল থাকায় রিফান্ড করা হলো'
+  ) => {
     const tx = transactions.find((t) => t.id === txId);
     if (!tx || tx.status !== 'pending') return;
+
+    try {
+      await updateDoc(doc(db, 'transactions', txId), {
+        status: 'rejected',
+        note: reason,
+      });
+
+      const userTarget = registeredUsers.find((u) => u.id === tx.userId);
+      if (userTarget) {
+        const newWinning = userTarget.winningBalance + tx.amount;
+        await updateDoc(doc(db, 'users', tx.userId), { winningBalance: newWinning });
+      }
+    } catch (err) {
+      console.warn('Error rejecting withdraw in Firestore:', err);
+    }
 
     setTransactions((prev) =>
       prev.map((t) => (t.id === txId ? { ...t, status: 'rejected', note: reason } : t))
     );
-
-    // Refund to user winning balance
-    if (user && tx.userId === user.id) {
-      setUser((prev) => (prev ? { ...prev, winningBalance: prev.winningBalance + tx.amount } : null));
-    }
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === tx.userId ? { ...p, winningBalance: p.winningBalance + tx.amount } : p))
-    );
-    setRegisteredUsers((prev) =>
-      prev.map((u) => (u.id === tx.userId ? { ...u, winningBalance: u.winningBalance + tx.amount } : u))
-    );
   };
 
   // -------------------------------------------------------------
-  // ADMIN MODULE 4: ROOM ID & PASSWORD (WITH RELEASE TIMING)
+  // ADMIN MODULE 4: ROOM ID & PASSWORD (WITH TIMING)
   // -------------------------------------------------------------
-  const setRoomDetailsWithTiming = (
+  const setRoomDetailsWithTiming = async (
     matchId: string,
     roomId: string,
     roomPassword: string,
     timing: 'now' | '10min' | '15min' | 'hidden',
     isVisible: boolean
   ) => {
+    const update = {
+      roomId: roomId.trim(),
+      roomPassword: roomPassword.trim(),
+      roomReleaseTiming: timing,
+      isRoomVisibleToPlayers: isVisible,
+      status: isVisible && roomId ? ('ongoing' as const) : undefined,
+    };
+
+    // Clean undefined fields for Firestore
+    const cleanUpdate: Record<string, any> = {
+      roomId: roomId.trim(),
+      roomPassword: roomPassword.trim(),
+      roomReleaseTiming: timing,
+      isRoomVisibleToPlayers: isVisible,
+    };
+    if (isVisible && roomId) {
+      cleanUpdate.status = 'ongoing';
+    }
+
+    try {
+      await updateDoc(doc(db, 'matches', matchId), cleanUpdate);
+    } catch (err) {
+      console.warn('Error setting room details in Firestore:', err);
+    }
+
     setMatches((prev) =>
       prev.map((m) =>
         m.id === matchId
           ? {
               ...m,
-              roomId: roomId.trim(),
-              roomPassword: roomPassword.trim(),
-              roomReleaseTiming: timing,
-              isRoomVisibleToPlayers: isVisible,
+              ...update,
               status: isVisible && roomId ? 'ongoing' : m.status,
             }
           : m
@@ -774,9 +925,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // -------------------------------------------------------------
-  // ADMIN MODULE 5: RESULT MANAGEMENT (KILL, POSITION, POINTS, WINNER)
+  // ADMIN MODULE 5: RESULT MANAGEMENT (Prizes credited & results declared)
   // -------------------------------------------------------------
-  const publishResults = (
+  const publishResults = async (
     matchId: string,
     results: MatchResultEntry[],
     booyahWinnerName: string,
@@ -784,105 +935,77 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     booyahPrize: number,
     totalKillsWinner: number
   ) => {
-    setMatches((prev) =>
-      prev.map((m) =>
-        m.id === matchId
-          ? {
-              ...m,
-              status: 'completed',
-              winnerName: booyahWinnerName,
-              winnerUid: booyahWinnerUid,
-              winnerPrize: booyahPrize,
-              totalKillsWinner,
-              results,
-            }
-          : m
-      )
-    );
+    const matchUpdate = {
+      status: 'completed' as const,
+      winnerName: booyahWinnerName,
+      winnerUid: booyahWinnerUid,
+      winnerPrize: booyahPrize,
+      totalKillsWinner,
+      results,
+    };
 
-    // Credit prizes to players in results
-    results.forEach((entry) => {
-      if (entry.prizeWon > 0) {
-        if (
-          user &&
-          (entry.uid === user.freeFireUid || entry.gamerName.toLowerCase() === user.username.toLowerCase())
-        ) {
-          setUser((u) =>
-            u
-              ? {
-                  ...u,
-                  winningBalance: u.winningBalance + entry.prizeWon,
-                  totalWonBDT: u.totalWonBDT + entry.prizeWon,
-                  matchesWon: entry.position === 1 ? u.matchesWon + 1 : u.matchesWon,
-                }
-              : null
+    try {
+      await updateDoc(doc(db, 'matches', matchId), matchUpdate);
+
+      // Credit prizes in Firestore
+      results.forEach(async (entry) => {
+        if (entry.prizeWon > 0) {
+          const target = registeredUsers.find(
+            (u) =>
+              u.freeFireUid === entry.uid ||
+              u.username.toLowerCase() === entry.gamerName.toLowerCase()
           );
+          if (target) {
+            const updatedWon = target.winningBalance + entry.prizeWon;
+            const updatedTotalWon = target.totalWonBDT + entry.prizeWon;
+            const updatedMatchesWon = entry.position === 1 ? target.matchesWon + 1 : target.matchesWon;
 
-          const tx: Transaction = {
-            id: `tx-${Date.now()}-${entry.uid}`,
-            userId: user.id,
-            userName: user.username,
-            type: 'match_prize',
-            amount: entry.prizeWon,
-            status: 'approved',
-            date: new Date().toLocaleString(),
-            note: `Tournament Prize: Rank #${entry.position}, ${entry.kills} Kills (${entry.points} Pts)`,
-          };
-          setTransactions((prev) => [tx, ...prev]);
+            await updateDoc(doc(db, 'users', target.id), {
+              winningBalance: updatedWon,
+              totalWonBDT: updatedTotalWon,
+              matchesWon: updatedMatchesWon,
+            });
+
+            const tx: Transaction = {
+              id: `tx-${Date.now()}-${entry.uid}`,
+              userId: target.id,
+              userName: target.username,
+              type: 'match_prize',
+              amount: entry.prizeWon,
+              status: 'approved',
+              date: new Date().toLocaleString(),
+              note: `Tournament Prize: Rank #${entry.position}, ${entry.kills} Kills (${entry.points} Pts)`,
+            };
+            await setDoc(doc(db, 'transactions', tx.id), tx);
+          }
         }
+      });
+    } catch (err) {
+      console.warn('Error publishing results in Firestore:', err);
+    }
 
-        setPlayers((ps) =>
-          ps.map((p) =>
-            p.freeFireUid === entry.uid
-              ? {
-                  ...p,
-                  winningBalance: p.winningBalance + entry.prizeWon,
-                  totalWonBDT: p.totalWonBDT + entry.prizeWon,
-                  matchesWon: entry.position === 1 ? p.matchesWon + 1 : p.matchesWon,
-                }
-              : p
-          )
-        );
-
-        setRegisteredUsers((us) =>
-          us.map((u) =>
-            u.freeFireUid === entry.uid
-              ? {
-                  ...u,
-                  winningBalance: u.winningBalance + entry.prizeWon,
-                  totalWonBDT: u.totalWonBDT + entry.prizeWon,
-                  matchesWon: entry.position === 1 ? u.matchesWon + 1 : u.matchesWon,
-                }
-              : u
-          )
-        );
-      }
-    });
+    setMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? { ...m, ...matchUpdate } : m))
+    );
   };
 
   // -------------------------------------------------------------
-  // ADMIN MODULE 6: WEBSITE SETTINGS
+  // ADMIN MODULE 6: WEBSITE SETTINGS (bKash/Nagad number, marquee notice)
   // -------------------------------------------------------------
-  const updateSettings = (newSettings: Partial<WebsiteSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+  const updateSettings = async (newSettings: Partial<WebsiteSettings>) => {
+    const updated = { ...settings, ...newSettings };
+    try {
+      await setDoc(doc(db, 'settings', 'global'), updated);
+    } catch (err) {
+      console.warn('Error updating settings in Firestore:', err);
+    }
+    setSettings(updated);
   };
 
-  // Reset all data
+  // Utility reset
   const resetAllData = () => {
-    localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
-    localStorage.removeItem(STORAGE_KEYS.MATCHES);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
-    localStorage.removeItem(STORAGE_KEYS.REGISTERED_USERS);
-    localStorage.removeItem(STORAGE_KEYS.PLAYERS);
-    localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
-    localStorage.removeItem(STORAGE_KEYS.SETTINGS);
-    setCategories(INITIAL_CATEGORIES);
-    setMatches(INITIAL_MATCHES);
     setUser(null);
-    setRegisteredUsers([]);
-    setPlayers(INITIAL_PLAYERS);
-    setTransactions(INITIAL_TRANSACTIONS);
-    setSettings(INITIAL_SETTINGS);
   };
 
   return (

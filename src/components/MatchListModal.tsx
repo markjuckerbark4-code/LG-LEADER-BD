@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GameCategory, TournamentMatch } from '../types';
 import { useTournament } from '../context/TournamentContext';
 import { JoinMatchModal } from './JoinMatchModal';
+import { getCharacterBanner } from '../assets/images';
 import {
   ArrowLeft,
   Users,
@@ -92,25 +93,56 @@ export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack
             const isFull = match.joinedPlayers.length >= match.totalSlots;
             const progress = Math.min(100, Math.round((match.joinedPlayers.length / match.totalSlots) * 100));
 
+            const characterBanner = match.thumbnailUrl || getCharacterBanner(match.categoryId || match.matchType);
+            const getHeroName = () => {
+              const cat = (match.categoryId || '').toLowerCase();
+              if (cat.includes('br') || cat.includes('pro')) return 'DJ ALOK';
+              if (cat.includes('cs') || cat.includes('headshot')) return 'HAYATO';
+              if (cat.includes('zone') || cat.includes('wolf') || cat.includes('1-hp')) return 'CHRONO';
+              return 'KELLY';
+            };
+
             return (
               <div
                 key={match.id}
-                className="rounded-2xl bg-slate-900/90 border border-slate-700/80 overflow-hidden shadow-xl hover:border-slate-600 transition-all"
+                className="rounded-2xl bg-slate-900/95 border border-slate-700/80 overflow-hidden shadow-xl hover:border-sky-500/60 transition-all group"
               >
-                {/* Match Header Bar */}
-                <div className="px-4 py-3 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700/70 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                {/* Free Fire Character Thumbnail Banner */}
+                <div className="relative w-full h-28 sm:h-32 overflow-hidden bg-slate-950">
+                  <img
+                    src={characterBanner}
+                    alt={match.title}
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/30" />
+
+                  {/* Top Badges */}
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 shadow-md">
                       Match #{match.matchNumber}
                     </span>
-                    <span className="text-xs font-semibold text-slate-300">{match.matchType}</span>
-                    <span className="text-slate-600">·</span>
-                    <span className="text-xs font-semibold text-slate-300">{match.map}</span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/60 text-sky-300 backdrop-blur-sm border border-sky-400/30">
+                      {match.matchType}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs text-amber-400 font-medium">
-                    <Clock className="w-3.5 h-3.5" />
+                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/70 text-amber-300 backdrop-blur-sm border border-white/10">
+                    <Clock className="w-3 h-3 text-amber-400" />
                     <span>{match.scheduleTime}</span>
+                  </div>
+
+                  {/* Character Name & Map info on banner bottom */}
+                  <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md border border-amber-400/40 text-[10px] font-black text-amber-300">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>{getHeroName()}</span>
+                    </div>
+
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-900/90 text-slate-200 border border-slate-700">
+                      MAP: {match.map}
+                    </span>
                   </div>
                 </div>
 

@@ -7,6 +7,8 @@ export interface GameCategory {
   badge?: string;
   imageTheme: string;
   description: string;
+  thumbnailUrl?: string;
+  characterName?: string;
 }
 
 export interface PlayerEntry {
@@ -55,6 +57,8 @@ export interface TournamentMatch {
   totalKillsWinner?: number;
   results?: MatchResultEntry[];
   cancelReason?: string;
+  thumbnailUrl?: string;
+  characterName?: string;
 }
 
 export interface UserProfile {
