@@ -130,4 +130,9 @@ export interface WebsiteSettings {
   rules: string[];
   noticeText: string;
   supportNotice: string;
+  minDeposit?: number;
+  maxDeposit?: number;
+  minWithdraw?: number;
+  maxWithdrawPerDay?: number;
 }
+

@@ -133,7 +133,29 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
       </div>
 
       {/* Menu List Items matching Image 3 strictly */}
-      <div className="p-4 max-w-xl mx-auto space-y-2">
+      <div className="p-4 max-w-xl mx-auto space-y-2.5">
+        {/* Dual Accounts Summary Card */}
+        <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-md">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-slate-400">একাউন্ট ব্যালেন্স বিবরণ</span>
+            <span className="text-xs font-black text-amber-400 tabular-nums">মোট: ৳{totalBalance}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span className="text-[10px] text-slate-400 block">মেইন একাউন্ট (ডিপোজিট)</span>
+              <span className="font-black text-sm text-sky-400 tabular-nums mt-0.5 block">
+                ৳{user.depositBalance || 0}
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span className="text-[10px] text-slate-400 block">গেম একাউন্ট (উইনিং)</span>
+              <span className="font-black text-sm text-emerald-400 tabular-nums mt-0.5 block">
+                ৳{user.winningBalance || 0}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Wallet item */}
         <button
           onClick={onOpenWallet}

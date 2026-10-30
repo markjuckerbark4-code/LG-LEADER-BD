@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { TournamentMatch, MatchResultEntry, UserProfile } from '../../types';
 import {
@@ -32,6 +32,7 @@ import {
   Award,
   Lock,
   LogOut,
+  Sliders,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -144,8 +145,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const [cancellingMatch, setCancellingMatch] = useState<TournamentMatch | null>(null);
   const [cancelReasonInput, setCancelReasonInput] = useState('অনিবার্য কারণে ম্যাচটি বাতিল করা হয়েছে এবং এন্ট্রি ফি রিফান্ড করা হলো।');
 
-  // Balance adjustment modal: 3 options (Add, Remove, Edit)
+  // Balance adjustment modal: 2 accounts (Main, Game) with 3 options each (Add, Remove, Edit)
   const [adjustingPlayer, setAdjustingPlayer] = useState<UserProfile | null>(null);
+  const [adjustAccount, setAdjustAccount] = useState<'main' | 'game'>('main');
   const [adjustMode, setAdjustMode] = useState<'add' | 'remove' | 'edit'>('add');
   const [adjustAmountInput, setAdjustAmountInput] = useState<number>(100);
 
@@ -174,6 +176,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const [settingsForm, setSettingsForm] = useState(settings);
   const [newRuleInput, setNewRuleInput] = useState('');
   const [settingsSavedSuccess, setSettingsSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    if (settings) {
+      setSettingsForm(settings);
+    }
+  }, [settings]);
 
   // Calculate pending counts
   const pendingDeposits = transactions.filter((t) => t.type === 'deposit' && t.status === 'pending');
@@ -843,17 +851,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                           </button>
                         </div>
 
-                      {/* Balances & Stats (Unified Balance: Main & Winning are one) */}
-                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-center text-xs">
+                      {/* Dual Account Balances: Main Account (Deposit) & Game Account (Winnings) */}
+                      <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-center text-xs">
                         <div>
-                          <div className="text-[10px] text-slate-400">একাউন্ট ব্যালেন্স</div>
-                          <div className="font-black text-sm text-emerald-400 tabular-nums">
-                            ৳{(p.depositBalance || 0) + (p.winningBalance || 0)}
+                          <div className="text-[10px] text-slate-400">মেইন একাউন্ট</div>
+                          <div className="font-black text-sm text-sky-400 tabular-nums">
+                            ৳{p.depositBalance || 0}
                           </div>
                         </div>
-                        <div className="border-l border-slate-800">
-                          <div className="text-[10px] text-slate-400">মোট জয়লাভ (Prize)</div>
-                          <div className="font-black text-sm text-amber-400 tabular-nums">৳{p.totalWonBDT || 0}</div>
+                        <div className="border-x border-slate-800">
+                          <div className="text-[10px] text-slate-400">গেম একাউন্ট (উইনিং)</div>
+                          <div className="font-black text-sm text-emerald-400 tabular-nums">
+                            ৳{p.winningBalance || 0}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-slate-400">মোট ব্যালেন্স</div>
+                          <div className="font-black text-sm text-amber-400 tabular-nums">
+                            ৳{(p.depositBalance || 0) + (p.winningBalance || 0)}
+                          </div>
                         </div>
                       </div>
 
@@ -864,12 +880,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                           <button
                             onClick={() => {
                               setAdjustingPlayer(p);
+                              setAdjustAccount('main');
                               setAdjustMode('add');
                               setAdjustAmountInput(100);
                             }}
                             className="px-2.5 py-1 rounded-lg bg-sky-950 hover:bg-sky-900 border border-sky-700 text-xs text-sky-300 font-bold cursor-pointer transition-colors"
                           >
-                            ⚙️ ব্যালেন্স এডজাস্ট (৩ অপশন)
+                            ⚙️ ব্যালেন্স এডজাস্ট (মেইন / গেম)
                           </button>
                         </div>
                         <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
@@ -1544,10 +1561,186 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 </div>
               </div>
 
-              {/* 4. Tournament Rules Management */}
+              {/* 4. Deposit & Withdraw Limits Configuration */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                      <Sliders className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-sky-400 uppercase tracking-wider">
+                        ৪. ডিপোজিট ও উত্তোলন লিমিট কনফিগারেশন (Deposit & Withdraw Limits)
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        এখানে সেট করা লিমিট ওয়েবসাইটে ইউজারদের ডিপোজিট ও উত্তোলন ফর্ম এবং ভ্যালিডেশনে সরাসরি প্রযোজ্য হবে।
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-sky-950 text-sky-300 border border-sky-800/80 px-2 py-0.5 rounded font-mono font-bold">
+                    Live Limits
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Deposit Limits Card */}
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-xs text-sky-400 flex items-center gap-1.5">
+                        <span>📥 ডিপোজিট লিমিট সেটিংস</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold">মেইন একাউন্টে যোগ হবে</span>
+                    </div>
+
+                    <div className="space-y-2.5 text-xs">
+                      <div>
+                        <label className="block text-slate-300 font-semibold mb-1">
+                          সর্বনিম্ন ডিপোজিট লিমিট (৳):
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                            ৳
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={settingsForm.minDeposit ?? 50}
+                            onChange={(e) =>
+                              setSettingsForm({
+                                ...settingsForm,
+                                minDeposit: Math.max(1, Number(e.target.value) || 0),
+                              })
+                            }
+                            placeholder="যেমন: 50"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-7 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-sky-500"
+                            required
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          ইউজার এর চেয়ে কম টাকা ডিপোজিট রিকোয়েস্ট করতে পারবে না (ডিফল্ট: ৳৫০)।
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-300 font-semibold mb-1">
+                          সর্বোচ্চ ডিপোজিট লিমিট (৳):
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                            ৳
+                          </span>
+                          <input
+                            type="number"
+                            min="100"
+                            value={settingsForm.maxDeposit ?? 25000}
+                            onChange={(e) =>
+                              setSettingsForm({
+                                ...settingsForm,
+                                maxDeposit: Math.max(100, Number(e.target.value) || 0),
+                              })
+                            }
+                            placeholder="যেমন: 25000"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-7 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-sky-500"
+                            required
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          একক ডিপোজিটে সর্বোচ্চ গ্রহণযোগ্য টাকা (ডিফল্ট: ৳২৫,০০০)।
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Withdraw Limits Card */}
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-xs text-emerald-400 flex items-center gap-1.5">
+                        <span>📤 উত্তোলন (Withdraw) লিমিট সেটিংস</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold">তাৎক্ষণিক ব্যালেন্স কর্তন</span>
+                    </div>
+
+                    <div className="space-y-2.5 text-xs">
+                      <div>
+                        <label className="block text-slate-300 font-semibold mb-1">
+                          সর্বনিম্ন উত্তোলন লিমিট (৳):
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                            ৳
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={settingsForm.minWithdraw ?? 50}
+                            onChange={(e) =>
+                              setSettingsForm({
+                                ...settingsForm,
+                                minWithdraw: Math.max(1, Number(e.target.value) || 0),
+                              })
+                            }
+                            placeholder="যেমন: 50"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-7 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          প্লেয়ার এর কম টাকা তুলতে পারবে না (ডিফল্ট: ৳৫০)।
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-300 font-semibold mb-1">
+                          দৈনিক সর্বোচ্চ উত্তোলন লিমিট (৳ / দিন):
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                            ৳
+                          </span>
+                          <input
+                            type="number"
+                            min="50"
+                            value={settingsForm.maxWithdrawPerDay ?? 1000}
+                            onChange={(e) =>
+                              setSettingsForm({
+                                ...settingsForm,
+                                maxWithdrawPerDay: Math.max(50, Number(e.target.value) || 0),
+                              })
+                            }
+                            placeholder="যেমন: 1000"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-7 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          প্রতি ২৪ ঘণ্টায় একজন প্লেয়ার সর্বোচ্চ যত টাকা তুলতে পারবে (ডিফল্ট: ৳১,০০০)।
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Preview Bar */}
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">লাইভ প্রিভিউ:</span>
+                    <span className="px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800 font-mono text-[11px]">
+                      ডিপোজিট: ৳{settingsForm.minDeposit ?? 50} - ৳{(settingsForm.maxDeposit ?? 25000).toLocaleString()}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono text-[11px]">
+                      উত্তোলন: ৳{settingsForm.minWithdraw ?? 50} (দৈনিক সর্বোচ্চ ৳{(settingsForm.maxWithdrawPerDay ?? 1000).toLocaleString()})
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-amber-400 font-medium">
+                    ⚠️ সেভ করার পর সব ইউজারের জন্য কার্যকর হবে
+                  </span>
+                </div>
+              </div>
+
+              {/* 5. Tournament Rules Management */}
               <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
                 <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                  ৪. টুর্নামেন্টের অল রুলস (All Rules)
+                  ৫. টুর্নামেন্টের অল রুলস (All Rules)
                 </h4>
 
                 <div className="space-y-2">
@@ -1586,10 +1779,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 </div>
               </div>
 
-              {/* 5. Live Marquee Notice */}
+              {/* 6. Live Marquee Notice */}
               <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
                 <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                  ৫. হোমপেজের রানিং নোটিশ বার (Notice Bar)
+                  ৬. হোমপেজের রানিং নোটিশ বার (Notice Bar)
                 </h4>
                 <textarea
                   rows={3}
@@ -1795,16 +1988,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
         </div>
       )}
 
-      {/* MODAL 3: ADJUST PLAYER BALANCE (3 Options: Add, Remove, Edit) */}
+      {/* MODAL 3: ADJUST PLAYER BALANCE (2 Accounts: Main & Game, 3 Options: Add, Remove, Edit) */}
       {adjustingPlayer && (() => {
-        const currentBal = (adjustingPlayer.depositBalance || 0) + (adjustingPlayer.winningBalance || 0);
+        const currentDeposit = adjustingPlayer.depositBalance || 0;
+        const currentWinning = adjustingPlayer.winningBalance || 0;
+        const currentTotal = currentDeposit + currentWinning;
+        const targetCurrent = adjustAccount === 'main' ? currentDeposit : currentWinning;
         const amountNum = Math.abs(adjustAmountInput || 0);
-        const previewBal =
-          adjustMode === 'add'
-            ? currentBal + amountNum
-            : adjustMode === 'remove'
-            ? Math.max(0, currentBal - amountNum)
-            : Math.max(0, adjustAmountInput || 0);
+
+        let previewTargetBal = targetCurrent;
+        if (adjustMode === 'add') {
+          previewTargetBal = targetCurrent + amountNum;
+        } else if (adjustMode === 'remove') {
+          previewTargetBal = Math.max(0, targetCurrent - amountNum);
+        } else if (adjustMode === 'edit') {
+          previewTargetBal = Math.max(0, adjustAmountInput || 0);
+        }
+
+        const previewTotalBal =
+          adjustAccount === 'main'
+            ? previewTargetBal + currentWinning
+            : currentDeposit + previewTargetBal;
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -1814,13 +2018,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 {adjustingPlayer.username || adjustingPlayer.name} ({adjustingPlayer.freeFireUid})
               </p>
 
-              {/* Current Unified Balance */}
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 mb-3 flex items-center justify-between">
-                <span className="text-xs text-slate-400">বর্তমান মোট ব্যালেন্স:</span>
-                <span className="font-black text-sm text-emerald-400 tabular-nums">৳{currentBal}</span>
+              {/* 1. Account Selection: Main vs Game Account */}
+              <div className="mb-3">
+                <span className="text-[11px] font-bold text-slate-400 block mb-1.5">
+                  কোন একাউন্ট এডজাস্ট করতে চান?
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustAccount('main')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      adjustAccount === 'main'
+                        ? 'bg-sky-950 border-sky-500 shadow-md ring-1 ring-sky-500'
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold text-slate-400">মেইন একাউন্ট</div>
+                    <div className="text-xs font-black text-white mt-0.5">ডিপোজিট ব্যালেন্স</div>
+                    <div className="text-sm font-black text-sky-400 mt-1 tabular-nums">৳{currentDeposit}</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdjustAccount('game')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      adjustAccount === 'game'
+                        ? 'bg-emerald-950 border-emerald-500 shadow-md ring-1 ring-emerald-500'
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold text-slate-400">গেম একাউন্ট</div>
+                    <div className="text-xs font-black text-white mt-0.5">উইনিং ব্যালেন্স</div>
+                    <div className="text-sm font-black text-emerald-400 mt-1 tabular-nums">৳{currentWinning}</div>
+                  </button>
+                </div>
               </div>
 
-              {/* 3 Option Selector Tabs (Add, Remove, Edit) */}
+              {/* 2. 3 Action Options: Add, Remove, Edit */}
+              <span className="text-[11px] font-bold text-slate-400 block mb-1.5">
+                অ্যাকশন সিলেক্ট করুন:
+              </span>
               <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950 rounded-xl mb-3 border border-slate-800">
                 <button
                   type="button"
@@ -1857,9 +2094,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 </button>
               </div>
 
+              {/* Amount Input */}
               <div className="space-y-3 text-xs">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">
+                    {adjustAccount === 'main' ? 'মেইন একাউন্টে ' : 'গেম একাউন্টে '}
                     {adjustMode === 'add'
                       ? 'কত টাকা যোগ করতে চান (৳):'
                       : adjustMode === 'remove'
@@ -1892,9 +2131,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 </div>
 
                 {/* Real-time Preview Banner */}
-                <div className="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">আপডেটের পর ব্যালেন্স হবে:</span>
-                  <span className="font-black text-sky-300 tabular-nums text-sm">৳{previewBal}</span>
+                <div className="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">
+                      {adjustAccount === 'main' ? 'মেইন একাউন্ট' : 'গেম একাউন্ট'} ব্যালেন্স হবে:
+                    </span>
+                    <span className="font-black text-sky-300 tabular-nums text-sm">৳{previewTargetBal}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800/80">
+                    <span className="text-slate-400">প্লেয়ারের মোট ব্যালেন্স হবে:</span>
+                    <span className="font-bold text-amber-300 tabular-nums">৳{previewTotalBal}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">
@@ -1908,7 +2155,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   <button
                     type="button"
                     onClick={() => {
-                      adjustPlayerBalance(adjustingPlayer.id, adjustMode, adjustAmountInput);
+                      adjustPlayerBalance(adjustingPlayer.id, adjustAccount, adjustMode, adjustAmountInput);
                       setAdjustingPlayer(null);
                     }}
                     className={`px-4 py-2 rounded-xl text-white font-black shadow-md cursor-pointer active:scale-95 transition-all ${

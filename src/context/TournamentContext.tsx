@@ -26,7 +26,9 @@ import {
   updateDoc,
   deleteDoc,
   onSnapshot,
+  getDoc,
   getDocFromServer,
+  arrayUnion,
 } from 'firebase/firestore';
 
 interface TournamentContextType {
@@ -70,9 +72,9 @@ interface TournamentContextType {
   updatePlayerStatus: (playerId: string, status: 'active' | 'banned') => void;
   adjustPlayerBalance: (
     playerId: string,
-    mode: 'add' | 'remove' | 'edit' | 'delta',
-    amount: number,
-    secondAmount?: number
+    accountOrMode: 'main' | 'game' | 'add' | 'remove' | 'edit' | 'delta',
+    modeOrAmount?: 'add' | 'remove' | 'edit' | 'delta' | number,
+    amountOrSecond?: number
   ) => void;
 
   // Module 3: bKash / Nagad Payment
@@ -111,11 +113,31 @@ const TournamentContext = createContext<TournamentContextType | undefined>(undef
 
 const STORAGE_KEYS = {
   ACTIVE_USER: 'lg_leader_active_user_v6',
+  DELETED_MATCHES: 'lg_deleted_match_ids',
 };
 
 export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [categories, setCategories] = useState<GameCategory[]>(INITIAL_CATEGORIES);
-  const [matches, setMatches] = useState<TournamentMatch[]>(INITIAL_MATCHES);
+
+  // Deleted matches tracking to strictly prevent auto re-adding
+  const [deletedMatchIds, setDeletedMatchIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.DELETED_MATCHES);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [matches, setMatches] = useState<TournamentMatch[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.DELETED_MATCHES);
+      const deleted: string[] = saved ? JSON.parse(saved) : [];
+      return INITIAL_MATCHES.filter((m) => !deleted.includes(m.id));
+    } catch {
+      return INITIAL_MATCHES;
+    }
+  });
   const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(INITIAL_PLAYERS);
   const [players, setPlayers] = useState<UserProfile[]>(INITIAL_PLAYERS);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
@@ -153,28 +175,68 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     testConnection();
   }, []);
 
-  // 2. Real-time Matches Listener
+  // 2. Real-time Deleted Matches Listener (Syncs removals across all devices immediately)
+  useEffect(() => {
+    const unsubDeleted = onSnapshot(
+      doc(db, 'system', 'deleted_matches'),
+      (snap) => {
+        if (snap.exists()) {
+          const ids: string[] = snap.data()?.deletedIds || [];
+          setDeletedMatchIds(ids);
+          try {
+            localStorage.setItem(STORAGE_KEYS.DELETED_MATCHES, JSON.stringify(ids));
+          } catch {}
+        }
+      },
+      (err) => console.warn('Deleted matches listener error:', err)
+    );
+    return () => unsubDeleted();
+  }, []);
+
+  // 3. Real-time Matches Listener (Guaranteed never to auto re-add removed matches)
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, 'matches'),
-      (snapshot) => {
-        if (snapshot.empty) {
-          INITIAL_MATCHES.forEach((m) => {
-            setDoc(doc(db, 'matches', m.id), m).catch(() => {});
-          });
-          setMatches(INITIAL_MATCHES);
-        } else {
-          const list = snapshot.docs.map((d) => d.data() as TournamentMatch);
-          list.sort((a, b) => (b.matchNumber || 0) - (a.matchNumber || 0));
-          setMatches(list);
+      async (snapshot) => {
+        try {
+          const seedDocRef = doc(db, 'system', 'matches_seed');
+          const seedSnap = await getDoc(seedDocRef).catch(() => null);
+          const alreadySeeded = seedSnap?.exists() && seedSnap.data()?.seeded === true;
+
+          if (snapshot.empty) {
+            if (!alreadySeeded) {
+              // Initial run only: seed initial matches
+              for (const m of INITIAL_MATCHES) {
+                if (!deletedMatchIds.includes(m.id)) {
+                  await setDoc(doc(db, 'matches', m.id), m).catch(() => {});
+                }
+              }
+              await setDoc(seedDocRef, { seeded: true, timestamp: Date.now() }).catch(() => {});
+              setMatches(INITIAL_MATCHES.filter((m) => !deletedMatchIds.includes(m.id)));
+            } else {
+              // Matches were intentionally deleted by admin: NEVER recreate them!
+              setMatches([]);
+            }
+          } else {
+            if (!alreadySeeded) {
+              await setDoc(seedDocRef, { seeded: true, timestamp: Date.now() }).catch(() => {});
+            }
+            const list = snapshot.docs
+              .map((d) => d.data() as TournamentMatch & { isDeleted?: boolean })
+              .filter((m) => !m.isDeleted && !deletedMatchIds.includes(m.id));
+            list.sort((a, b) => (b.matchNumber || 0) - (a.matchNumber || 0));
+            setMatches(list);
+          }
+        } catch (err) {
+          console.warn('Real-time matches processing error:', err);
         }
       },
       (err) => {
-        console.warn('Real-time matches error:', err);
+        console.warn('Real-time matches snapshot error:', err);
       }
     );
     return () => unsub();
-  }, []);
+  }, [deletedMatchIds]);
 
   // 3. Real-time Users Listener (Single unified account balance)
   useEffect(() => {
@@ -412,15 +474,28 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'আপনি ইতোমধ্যে এই ম্যাচে জয়েন করেছেন!' };
     }
 
-    const currentTotalBalance = (user.depositBalance || 0) + (user.winningBalance || 0);
+    const currentDeposit = user.depositBalance || 0;
+    const currentWinning = user.winningBalance || 0;
+    const currentTotalBalance = currentDeposit + currentWinning;
+
     if (currentTotalBalance < match.entryFee) {
       return {
         success: false,
-        message: `পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${match.entryFee}, আপনার ব্যালেন্স ৳${currentTotalBalance}। ওয়ালেটে টাকা এড করুন।`,
+        message: `পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${match.entryFee}, আপনার সর্বমোট ব্যালেন্স ৳${currentTotalBalance} (মেইন: ৳${currentDeposit}, গেম: ৳${currentWinning})।`,
       };
     }
 
-    const newBalance = currentTotalBalance - match.entryFee;
+    // Deduct entry fee from Main Account (deposit) first; remainder from Game Account (winning)
+    let newDeposit = currentDeposit;
+    let newWinning = currentWinning;
+    if (newDeposit >= match.entryFee) {
+      newDeposit -= match.entryFee;
+    } else {
+      const rem = match.entryFee - newDeposit;
+      newDeposit = 0;
+      newWinning = Math.max(0, newWinning - rem);
+    }
+
     const newEntry = {
       userId: user.id,
       gamerName: gamerName || user.username,
@@ -433,8 +508,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const updatedUser: UserProfile = {
       ...user,
-      depositBalance: newBalance,
-      winningBalance: 0,
+      depositBalance: newDeposit,
+      winningBalance: newWinning,
       matchesJoined: (user.matchesJoined || 0) + 1,
       freeFireUid: uid || user.freeFireUid,
     };
@@ -455,8 +530,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.warn('Error syncing join match to Firestore:', err)
     );
     updateDoc(doc(db, 'users', user.id), {
-      depositBalance: newBalance,
-      winningBalance: 0,
+      depositBalance: newDeposit,
+      winningBalance: newWinning,
       matchesJoined: updatedUser.matchesJoined,
       freeFireUid: updatedUser.freeFireUid,
     }).catch((err) => console.warn('Error updating user on join:', err));
@@ -482,8 +557,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!user) {
       return { success: false, message: 'ডিপোজিট করতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
     }
-    if (amount < 50) {
-      return { success: false, message: 'সর্বনিম্ন ডিপোজিট ৫০ টাকা।' };
+    const minDep = settings.minDeposit ?? 50;
+    const maxDep = settings.maxDeposit ?? 25000;
+
+    if (amount < minDep) {
+      return { success: false, message: `সর্বনিম্ন ডিপোজিট ৳${minDep} টাকা।` };
+    }
+    if (maxDep > 0 && amount > maxDep) {
+      return { success: false, message: `একবারে সর্বোচ্চ ডিপোজিট ৳${maxDep} টাকা।` };
     }
     if (!trxId || trxId.trim().length < 6) {
       return { success: false, message: 'সঠিক ট্রানজেকশন আইডি (TrxID) দিন।' };
@@ -521,8 +602,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // -------------------------------------------------------------
   // USER ACTION: Submit Withdraw
   // Rules:
-  // 1. Minimum withdraw: 50 BDT
-  // 2. Maximum withdraw per day: 1000 BDT
+  // 1. Minimum withdraw: settings.minWithdraw (default 50 BDT)
+  // 2. Maximum withdraw per day: settings.maxWithdrawPerDay (default 1000 BDT)
   // 3. Immediately deducted from customer's account balance
   // 4. Sent to admin panel for verification
   // 5. Unified balance (Winning and Main account are one and the same)
@@ -535,8 +616,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!user) {
       return { success: false, message: 'টাকা তুলতে অনুগ্রহ করে প্রথমে লগইন করুন।' };
     }
-    if (amount < 50) {
-      return { success: false, message: 'সর্বনিম্ন উত্তোলন ৫০ টাকা।' };
+    const minWith = settings.minWithdraw ?? 50;
+    const maxDaily = settings.maxWithdrawPerDay ?? 1000;
+
+    if (amount < minWith) {
+      return { success: false, message: `সর্বনিম্ন উত্তোলন ৳${minWith} টাকা।` };
     }
 
     const currentTotalBalance = (user.depositBalance || 0) + (user.winningBalance || 0);
@@ -547,7 +631,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
     }
 
-    // Check daily withdrawal limit (max 1000 BDT per day)
+    // Check daily withdrawal limit (dynamic max per day)
     const today = new Date().toDateString();
     const todayWithdrawn = transactions
       .filter((t) => {
@@ -557,11 +641,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       })
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    const remainingDailyLimit = Math.max(0, 1000 - todayWithdrawn);
+    const remainingDailyLimit = Math.max(0, maxDaily - todayWithdrawn);
     if (amount > remainingDailyLimit) {
       return {
         success: false,
-        message: `দৈনিক সর্বোচ্চ ১,০০০ টাকা উত্তোলন করা যাবে। আজ আপনি ইতোমধ্যে ৳${todayWithdrawn} উত্তোলন করেছেন, আর সর্বোচ্চ ৳${remainingDailyLimit} উত্তোলন করতে পারবেন।`,
+        message: `দৈনিক সর্বোচ্চ ৳${maxDaily} টাকা উত্তোলন করা যাবে। আজ আপনি ইতোমধ্যে ৳${todayWithdrawn} উত্তোলন করেছেন, আর সর্বোচ্চ ৳${remainingDailyLimit} উত্তোলন করতে পারবেন।`,
       };
     }
 
@@ -569,12 +653,24 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'সঠিক বিকাশ/নগদ নাম্বার দিন।' };
     }
 
-    // Immediately minus from customer's account balance
-    const newBalance = currentTotalBalance - amount;
+    // Immediately minus from customer's account balance (deducts from Game Account / winning balance first)
+    const currentDeposit = user.depositBalance || 0;
+    const currentWinning = user.winningBalance || 0;
+    let newWinning = currentWinning;
+    let newDeposit = currentDeposit;
+
+    if (newWinning >= amount) {
+      newWinning -= amount;
+    } else {
+      const rem = amount - newWinning;
+      newWinning = 0;
+      newDeposit = Math.max(0, newDeposit - rem);
+    }
+
     const updatedUser = {
       ...user,
-      depositBalance: newBalance,
-      winningBalance: 0,
+      depositBalance: newDeposit,
+      winningBalance: newWinning,
     };
     setUser(updatedUser);
 
@@ -591,8 +687,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       note: `Requested cashout to ${method}: ${phone}`,
     };
 
-    updateDoc(doc(db, 'users', user.id), { depositBalance: newBalance, winningBalance: 0 }).catch((err) =>
-      console.warn('Error updating winning balance on withdraw:', err)
+    updateDoc(doc(db, 'users', user.id), {
+      depositBalance: newDeposit,
+      winningBalance: newWinning,
+    }).catch((err) =>
+      console.warn('Error updating balance on withdraw in Firestore:', err)
     );
     setDoc(doc(db, 'transactions', tx.id), tx).catch((err) =>
       console.warn('Error writing withdraw to Firestore:', err)
@@ -707,9 +806,10 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       m.joinedPlayers.forEach(async (player) => {
         const u = registeredUsers.find((userDoc) => userDoc.id === player.userId);
         if (u) {
-          const newBalance = (u.depositBalance || 0) + (u.winningBalance || 0) + m.entryFee;
+          // Refund entry fee back into user's Main Account (depositBalance)
+          const newDeposit = (u.depositBalance || 0) + m.entryFee;
           try {
-            await updateDoc(doc(db, 'users', u.id), { depositBalance: newBalance, winningBalance: 0 });
+            await updateDoc(doc(db, 'users', u.id), { depositBalance: newDeposit });
           } catch (e) {}
         }
       });
@@ -717,7 +817,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const cancelUpdate = {
       status: 'cancelled' as const,
-      cancelReason: reason || 'ম্যাচ বাতিল করা হয়েছে এবং এন্ট্রি ফি রিফান্ড করা হয়েছে।',
+      cancelReason: reason || 'ম্যাচ বাতিল করা হয়েছে এবং এন্ট্রি ফি মেইন একাউন্টে রিফান্ড করা হয়েছে।',
     };
 
     try {
@@ -730,13 +830,34 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const deleteMatch = async (matchId: string) => {
+    // 1. Immediately remove from local state
+    setMatches((prev) => prev.filter((m) => m.id !== matchId));
+    setDeletedMatchIds((prev) => {
+      const next = prev.includes(matchId) ? prev : [...prev, matchId];
+      try {
+        localStorage.setItem(STORAGE_KEYS.DELETED_MATCHES, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // 2. Delete document from Firestore
     try {
       await deleteDoc(doc(db, 'matches', matchId));
     } catch (err) {
       console.warn('Error deleting match in Firestore:', err);
     }
 
-    setMatches((prev) => prev.filter((m) => m.id !== matchId));
+    // 3. Mark in deleted_matches system doc so it can NEVER auto re-add on any device
+    try {
+      await setDoc(
+        doc(db, 'system', 'deleted_matches'),
+        { deletedIds: arrayUnion(matchId) },
+        { merge: true }
+      );
+      await setDoc(doc(db, 'system', 'matches_seed'), { seeded: true }, { merge: true });
+    } catch (err) {
+      console.warn('Error recording deleted match ID:', err);
+    }
   };
 
   const archiveMatch = async (matchId: string) => {
@@ -767,49 +888,74 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const adjustPlayerBalance = async (
     playerId: string,
-    mode: 'add' | 'remove' | 'edit' | 'delta',
-    amount: number,
-    secondAmount?: number
+    accountOrMode: 'main' | 'game' | 'add' | 'remove' | 'edit' | 'delta',
+    modeOrAmount?: 'add' | 'remove' | 'edit' | 'delta' | number,
+    amountOrSecond?: number
   ) => {
     const target = registeredUsers.find((u) => u.id === playerId);
     if (!target) return;
 
-    const currentBalance = (target.depositBalance || 0) + (target.winningBalance || 0);
-    let newBalance = currentBalance;
+    let targetAccount: 'main' | 'game' = 'main';
+    let mode: 'add' | 'remove' | 'edit' = 'add';
+    let amount = 0;
 
-    if (mode === 'add') {
-      newBalance = currentBalance + Math.max(0, amount);
-    } else if (mode === 'remove') {
-      newBalance = Math.max(0, currentBalance - Math.abs(amount));
-    } else if (mode === 'edit') {
-      newBalance = Math.max(0, amount);
-    } else if (mode === 'delta') {
-      // legacy support
-      newBalance = Math.max(0, currentBalance + amount + (secondAmount || 0));
+    if (accountOrMode === 'main' || accountOrMode === 'game') {
+      targetAccount = accountOrMode;
+      mode = (modeOrAmount as 'add' | 'remove' | 'edit') || 'add';
+      amount = typeof amountOrSecond === 'number' ? amountOrSecond : 0;
+    } else {
+      // Legacy fallback
+      targetAccount = 'main';
+      mode = accountOrMode as 'add' | 'remove' | 'edit';
+      amount = typeof modeOrAmount === 'number' ? modeOrAmount : 0;
+    }
+
+    let newDeposit = target.depositBalance || 0;
+    let newWinning = target.winningBalance || 0;
+    const absAmount = Math.abs(amount);
+
+    if (targetAccount === 'main') {
+      if (mode === 'add') {
+        newDeposit = newDeposit + absAmount;
+      } else if (mode === 'remove') {
+        newDeposit = Math.max(0, newDeposit - absAmount);
+      } else if (mode === 'edit') {
+        newDeposit = Math.max(0, amount);
+      }
+    } else {
+      // game account (winnings)
+      if (mode === 'add') {
+        newWinning = newWinning + absAmount;
+      } else if (mode === 'remove') {
+        newWinning = Math.max(0, newWinning - absAmount);
+      } else if (mode === 'edit') {
+        newWinning = Math.max(0, amount);
+      }
     }
 
     try {
       await updateDoc(doc(db, 'users', playerId), {
-        depositBalance: newBalance,
-        winningBalance: 0,
+        depositBalance: newDeposit,
+        winningBalance: newWinning,
       });
     } catch (err) {
       console.warn('Error adjusting balance in Firestore:', err);
     }
 
-    setPlayers((prev) =>
-      prev.map((p) =>
-        p.id === playerId ? { ...p, depositBalance: newBalance, winningBalance: 0 } : p
-      )
-    );
-    setRegisteredUsers((prev) =>
-      prev.map((u) =>
-        u.id === playerId ? { ...u, depositBalance: newBalance, winningBalance: 0 } : u
-      )
-    );
+    const updatedTarget: UserProfile = {
+      ...target,
+      depositBalance: newDeposit,
+      winningBalance: newWinning,
+    };
+
+    setPlayers((prev) => prev.map((p) => (p.id === playerId ? updatedTarget : p)));
+    setRegisteredUsers((prev) => prev.map((u) => (u.id === playerId ? updatedTarget : u)));
 
     if (user && playerId === user.id) {
-      setUser((prev) => (prev ? { ...prev, depositBalance: newBalance, winningBalance: 0 } : null));
+      setUser(updatedTarget);
+      try {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(updatedTarget));
+      } catch {}
     }
   };
 
@@ -823,15 +969,16 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       await updateDoc(doc(db, 'transactions', txId), {
         status: 'approved',
-        note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত',
+        note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত (মেইন একাউন্টে যোগ হয়েছে)',
       });
 
       const userTarget = registeredUsers.find((u) => u.id === tx.userId);
       if (userTarget) {
-        const newBalance = (userTarget.depositBalance || 0) + (userTarget.winningBalance || 0) + tx.amount;
-        await updateDoc(doc(db, 'users', tx.userId), { depositBalance: newBalance, winningBalance: 0 });
+        // kew diposit dile oita main acount e taka add hobi
+        const newDeposit = (userTarget.depositBalance || 0) + tx.amount;
+        await updateDoc(doc(db, 'users', tx.userId), { depositBalance: newDeposit });
         if (user && user.id === tx.userId) {
-          setUser((prev) => prev ? { ...prev, depositBalance: newBalance, winningBalance: 0 } : null);
+          setUser((prev) => prev ? { ...prev, depositBalance: newDeposit } : null);
         }
       }
     } catch (err) {
@@ -892,20 +1039,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         note: reason,
       });
 
-      // Refund back to player's main balance immediately
+      // Refund back to player's Game Account (winning balance)
       const userTarget = registeredUsers.find((u) => u.id === tx.userId);
       if (userTarget) {
-        const refundedBalance = (userTarget.depositBalance || 0) + (userTarget.winningBalance || 0) + tx.amount;
-        await updateDoc(doc(db, 'users', tx.userId), { depositBalance: refundedBalance, winningBalance: 0 });
+        const refundedWinning = (userTarget.winningBalance || 0) + tx.amount;
+        await updateDoc(doc(db, 'users', tx.userId), { winningBalance: refundedWinning });
 
         if (user && tx.userId === user.id) {
-          setUser((prev) => (prev ? { ...prev, depositBalance: refundedBalance, winningBalance: 0 } : null));
+          setUser((prev) => (prev ? { ...prev, winningBalance: refundedWinning } : null));
         }
         setPlayers((prev) =>
-          prev.map((p) => (p.id === tx.userId ? { ...p, depositBalance: refundedBalance, winningBalance: 0 } : p))
+          prev.map((p) => (p.id === tx.userId ? { ...p, winningBalance: refundedWinning } : p))
         );
         setRegisteredUsers((prev) =>
-          prev.map((u) => (u.id === tx.userId ? { ...u, depositBalance: refundedBalance, winningBalance: 0 } : u))
+          prev.map((u) => (u.id === tx.userId ? { ...u, winningBalance: refundedWinning } : u))
         );
       }
     } catch (err) {
@@ -995,13 +1142,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               u.username.toLowerCase() === entry.gamerName.toLowerCase()
           );
           if (target) {
-            const updatedWon = (target.depositBalance || 0) + (target.winningBalance || 0) + entry.prizeWon;
+            // ar match e wining amount game acount e
+            const updatedWinning = (target.winningBalance || 0) + entry.prizeWon;
             const updatedTotalWon = (target.totalWonBDT || 0) + entry.prizeWon;
             const updatedMatchesWon = entry.position === 1 ? (target.matchesWon || 0) + 1 : (target.matchesWon || 0);
 
             await updateDoc(doc(db, 'users', target.id), {
-              depositBalance: updatedWon,
-              winningBalance: 0,
+              winningBalance: updatedWinning,
               totalWonBDT: updatedTotalWon,
               matchesWon: updatedMatchesWon,
             });
@@ -1014,7 +1161,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               amount: entry.prizeWon,
               status: 'approved',
               date: new Date().toLocaleString(),
-              note: `Tournament Prize: Rank #${entry.position}, ${entry.kills} Kills (${entry.points} Pts)`,
+              note: `Tournament Prize: Rank #${entry.position}, ${entry.kills} Kills (${entry.points} Pts) - ক্রেডিট করা হয়েছে গেম একাউন্টে`,
             };
             await setDoc(doc(db, 'transactions', tx.id), tx);
           }

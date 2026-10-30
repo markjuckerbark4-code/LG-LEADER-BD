@@ -26,10 +26,16 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Dynamic deposit & withdraw limits from Website Settings
+  const minDeposit = settings.minDeposit ?? 50;
+  const maxDeposit = settings.maxDeposit ?? 25000;
+  const minWithdraw = settings.minWithdraw ?? 50;
+  const maxWithdrawPerDay = settings.maxWithdrawPerDay ?? 1000;
+
   // Unified single balance (Winning account and Main account are one and the same)
   const totalBalance = user ? (user.depositBalance || 0) + (user.winningBalance || 0) : 0;
 
-  // Daily withdraw limit calculations (Max 1000 BDT/day)
+  // Daily withdraw limit calculations (Configured via Website Settings)
   const today = new Date().toDateString();
   const todayWithdrawn = transactions
     .filter((t) => {
@@ -39,7 +45,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
     })
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-  const remainingDailyLimit = Math.max(0, 1000 - todayWithdrawn);
+  const remainingDailyLimit = Math.max(0, maxWithdrawPerDay - todayWithdrawn);
   const maxCanWithdraw = Math.min(totalBalance, remainingDailyLimit);
 
   // Method details
@@ -84,8 +90,12 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
   const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
-    if (depositAmount < 50) {
-      setFeedback({ type: 'error', message: 'সর্বনিম্ন ডিপোজিট ৫০ টাকা।' });
+    if (depositAmount < minDeposit) {
+      setFeedback({ type: 'error', message: `সর্বনিম্ন ডিপোজিট ৳${minDeposit} টাকা।` });
+      return;
+    }
+    if (maxDeposit > 0 && depositAmount > maxDeposit) {
+      setFeedback({ type: 'error', message: `একবারে সর্বোচ্চ ডিপোজিট ৳${maxDeposit} টাকা।` });
       return;
     }
     const res = submitDeposit(depositMethod, Number(depositAmount), depositTrxId, depositPhone);
@@ -103,14 +113,14 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
   const handleWithdrawSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
-    if (withdrawAmount < 50) {
-      setFeedback({ type: 'error', message: 'সর্বনিম্ন উত্তোলন ৫০ টাকা।' });
+    if (withdrawAmount < minWithdraw) {
+      setFeedback({ type: 'error', message: `সর্বনিম্ন উত্তোলন ৳${minWithdraw} টাকা।` });
       return;
     }
     if (withdrawAmount > remainingDailyLimit) {
       setFeedback({
         type: 'error',
-        message: `দৈনিক সর্বোচ্চ উত্তোলন ১,০০০ টাকা। আজ আপনি আর সর্বোচ্চ ৳${remainingDailyLimit} তুলতে পারবেন।`,
+        message: `দৈনিক সর্বোচ্চ উত্তোলন ৳${maxWithdrawPerDay} টাকা। আজ আপনি আর সর্বোচ্চ ৳${remainingDailyLimit} তুলতে পারবেন।`,
       });
       return;
     }
@@ -151,30 +161,52 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
           </div>
         </div>
 
-        {/* Unified Balance Card (Winning & Main account are one and the same) */}
+        {/* Dual Account Balance Card: Main Account (Deposit) & Game Account (Winnings) */}
         <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 border border-slate-800 mb-4 shadow-inner">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="text-xs font-semibold text-slate-400">আপনার একাউন্ট মোট ব্যালেন্স</div>
+              <div className="text-[11px] font-semibold text-slate-400">সর্বমোট ব্যালেন্স</div>
               <div className="text-3xl font-black text-white tabular-nums mt-0.5 tracking-tight">
                 ৳{totalBalance}
               </div>
             </div>
             <div className="text-right">
               <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                Active Account
+                2 Accounts Active
               </span>
+            </div>
+          </div>
+
+          {/* 2 Sub-accounts breakdown */}
+          <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+            <div>
+              <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                <span>মেইন একাউন্ট (ডিপোজিট)</span>
+              </div>
+              <div className="font-black text-sm text-sky-400 tabular-nums mt-0.5">
+                ৳{user?.depositBalance || 0}
+              </div>
+            </div>
+            <div className="border-l border-slate-800 pl-2">
+              <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>গেম একাউন্ট (উইনিং)</span>
+              </div>
+              <div className="font-black text-sm text-emerald-400 tabular-nums mt-0.5">
+                ৳{user?.winningBalance || 0}
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-800/80 text-[11px]">
             <div>
               <span className="text-slate-400">সর্বনিম্ন ডিপোজিট / উত্তোলন:</span>
-              <div className="font-bold text-sky-300">৳৫০ টাকা</div>
+              <div className="font-bold text-sky-300">৳{minDeposit} / ৳{minWithdraw}</div>
             </div>
             <div>
               <span className="text-slate-400">দৈনিক সর্বোচ্চ উত্তোলন:</span>
-              <div className="font-bold text-amber-300">৳১,০০০ টাকা / দিন</div>
+              <div className="font-bold text-amber-300">৳{maxWithdrawPerDay.toLocaleString()} টাকা / দিন</div>
             </div>
           </div>
         </div>
@@ -319,16 +351,16 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
               </div>
             </div>
 
-            {/* Quick Amount Selector (Min 50 BDT) */}
+            {/* Quick Amount Selector (Min BDT) */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-slate-300">
-                  ডিপোজিট পরিমাণ (সর্বনিম্ন ৳৫০):
+                  ডিপোজিট পরিমাণ (সর্বনিম্ন ৳{minDeposit}):
                 </label>
-                <span className="text-[10px] text-amber-400 font-bold">Min: ৳50</span>
+                <span className="text-[10px] text-amber-400 font-bold">Min: ৳{minDeposit}</span>
               </div>
               <div className="grid grid-cols-5 gap-1.5 mb-2">
-                {[50, 100, 200, 500, 1000].map((amt) => (
+                {[minDeposit, 100, 200, 500, 1000].map((amt) => (
                   <button
                     key={amt}
                     type="button"
@@ -346,11 +378,12 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
 
               <input
                 type="number"
-                min="50"
+                min={minDeposit}
+                max={maxDeposit}
                 step="5"
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(Number(e.target.value))}
-                placeholder="টাকার পরিমাণ লিখুন (যেমন: 150)"
+                placeholder={`টাকার পরিমাণ লিখুন (যেমন: ${minDeposit})`}
                 className="w-full text-xs font-bold bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sky-500"
                 required
               />
@@ -395,7 +428,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
           </form>
         )}
 
-        {/* Tab 2: WITHDRAW (Min 50 BDT, Max 1000 BDT/day, Immediate balance deduction) */}
+        {/* Tab 2: WITHDRAW (Dynamic min & daily limits, Immediate balance deduction) */}
         {activeTab === 'withdraw' && (
           <form onSubmit={handleWithdrawSubmit} className="space-y-3.5">
             {/* Limit Banner */}
@@ -406,11 +439,11 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
                   <span>দৈনিক উত্তোলন নিয়মাবলী</span>
                 </span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">
-                  Limit: ৳1,000/Day
+                  Limit: ৳{maxWithdrawPerDay.toLocaleString()}/Day
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 leading-relaxed">
-                • সর্বনিম্ন উত্তোলন: <strong>৳৫০ টাকা</strong> | দৈনিক সর্বোচ্চ উত্তোলন: <strong>৳১,০০০ টাকা</strong>
+                • সর্বনিম্ন উত্তোলন: <strong>৳{minWithdraw} টাকা</strong> | দৈনিক সর্বোচ্চ উত্তোলন: <strong>৳{maxWithdrawPerDay.toLocaleString()} টাকা</strong>
               </p>
               <p className="text-[11px] text-emerald-200/90 leading-relaxed">
                 • আজ আপনি আর সর্বোচ্চ <strong>৳{remainingDailyLimit}</strong> উত্তোলন করতে পারবেন।
@@ -455,18 +488,18 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
               </div>
               <input
                 type="number"
-                min="50"
+                min={minWithdraw}
                 max={maxCanWithdraw}
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(Number(e.target.value))}
-                placeholder="যেমন: 50, 100, 500"
+                placeholder={`যেমন: ${minWithdraw}, 100, 500`}
                 className="w-full text-xs font-black bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500"
                 required
               />
 
               {/* Quick Amount presets */}
               <div className="flex items-center gap-1.5 mt-2">
-                {[50, 100, 200, 500, 1000].map((amt) => (
+                {[minWithdraw, 100, 200, 500, 1000].map((amt) => (
                   <button
                     key={amt}
                     type="button"

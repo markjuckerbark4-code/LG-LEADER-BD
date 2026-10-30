@@ -64,14 +64,24 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet }) => {
 
         {/* Right side actions: User Wallet Balance */}
         <div className="flex items-center gap-2">
-          {/* User Wallet Balance Chip */}
+          {/* User Wallet Balance Chip showing Main and Game accounts */}
           <button
             onClick={onOpenWallet}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white shadow-md shadow-sky-900/30 active:scale-95 transition-all text-xs font-bold"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 via-indigo-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white shadow-md shadow-sky-900/30 active:scale-95 transition-all text-xs font-bold cursor-pointer"
+            title={`মেইন একাউন্ট: ৳${user?.depositBalance || 0} | গেম একাউন্ট: ৳${user?.winningBalance || 0}`}
           >
-            <Wallet className="w-3.5 h-3.5 text-sky-200" />
-            <span className="tabular-nums">৳{totalBalance}</span>
-            <span className="w-4 h-4 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] font-extrabold leading-none">
+            <div className="w-6 h-6 rounded-lg bg-white/15 flex items-center justify-center">
+              <Wallet className="w-3.5 h-3.5 text-sky-200" />
+            </div>
+            <div className="flex flex-col text-left leading-none">
+              <span className="text-[9px] text-sky-200 font-semibold">
+                মেইন ৳{user?.depositBalance || 0} • গেম ৳{user?.winningBalance || 0}
+              </span>
+              <span className="text-xs font-black text-white mt-0.5 tabular-nums">
+                মোট ৳{totalBalance}
+              </span>
+            </div>
+            <span className="w-4 h-4 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] font-extrabold leading-none ml-0.5">
               +
             </span>
           </button>

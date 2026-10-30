@@ -80,12 +80,18 @@ export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({ match, onClose, 
         </div>
 
         {/* User Balance Check */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700 mb-4 text-xs">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-sky-400" />
-            <span className="text-slate-300">আপনার বর্তমান ব্যালেন্স:</span>
+        <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700 mb-4 text-xs">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-sky-400" />
+              <span className="text-slate-300 font-semibold">আপনার মোট ব্যালেন্স:</span>
+            </div>
+            <div className="font-black text-sm tabular-nums text-white">৳{totalBalance}</div>
           </div>
-          <div className="font-bold tabular-nums text-white">৳{totalBalance}</div>
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-700/60">
+            <span>মেইন একাউন্ট: <strong className="text-sky-300">৳{user?.depositBalance || 0}</strong></span>
+            <span>গেম একাউন্ট: <strong className="text-emerald-300">৳{user?.winningBalance || 0}</strong></span>
+          </div>
         </div>
 
         {!isBalanceEnough && (

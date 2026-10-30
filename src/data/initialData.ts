@@ -455,6 +455,10 @@ export const INITIAL_SETTINGS = {
   noticeText:
     '🔥 LG LEADER BD এ সবাইকে স্বাগতম! প্রতিদিন Free Fire টুর্নামেন্ট খেলুন এবং জিতে নিন নগদ টাকা! নগদ (Nagad) ডিপোজিট করুন ০১৩১৭৮৫৭৩৭৩ নাম্বারে। দ্রুত এপ্রুভ ও রুম আইডি পাবেন!',
   supportNotice: '২৪/৭ যেকোনো প্রয়োজনে আমাদের অফিশিয়াল টেলিগ্রাম চ্যানেলে জয়েন করুন।',
+  minDeposit: 50,
+  maxDeposit: 25000,
+  minWithdraw: 50,
+  maxWithdrawPerDay: 1000,
 };
 
 export const INITIAL_PLAYERS: UserProfile[] = [];
