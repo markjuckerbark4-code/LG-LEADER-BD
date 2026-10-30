@@ -13,6 +13,7 @@ import {
   Sparkles,
   ShieldCheck,
   ArrowRight,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -135,293 +136,268 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-md p-4 overflow-y-auto">
-      <div className="relative w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden my-4">
-        {/* Top Header Background Banner */}
-        <div className="relative bg-gradient-to-br from-amber-600 via-orange-600 to-red-600 p-6 text-center text-white">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-300/20 via-transparent to-black/60" />
-
-          <div className="relative z-10 flex flex-col items-center">
-            {/* Glowing Logo Icon */}
-            <div className="w-14 h-14 rounded-2xl bg-slate-950/80 border border-amber-400/40 shadow-xl flex items-center justify-center text-amber-400 mb-2">
-              <Flame className="w-8 h-8 fill-amber-400" />
+    <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-slate-900 selection:text-white">
+      <div className="w-full max-w-sm flex flex-col my-auto">
+        {/* ===================== LOGIN VIEW ===================== */}
+        {mode === 'login' ? (
+          <div className="animate-fadeIn">
+            {/* Top Header matching Screenshot 1 (Left) */}
+            <div className="mb-6 px-1">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                Welcome Back
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                Sign in to your account
+              </p>
             </div>
 
-            <h1 className="text-2xl font-black tracking-tight uppercase drop-shadow">
-              {settings.siteName || 'LG LEADER BD'}
-            </h1>
-            <p className="text-xs font-bold text-amber-200 uppercase tracking-widest mt-0.5">
-              FREE FIRE ESPORTS TOURNAMENT
-            </p>
-            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-black/40 text-[11px] font-medium text-amber-300 border border-amber-400/30">
-              <Sparkles className="w-3 h-3" />
-              <span>প্রতিদিন ফ্রি ফায়ার কাস্টম টুর্নামেন্ট খেলুন ও নগদ টাকা জিতুন</span>
-            </div>
-          </div>
-        </div>
+            {/* Main White Card matching Screenshot 1 */}
+            <div className="bg-white text-slate-900 rounded-3xl p-6 shadow-2xl">
+              {/* Feedback Messages */}
+              {errorMsg && (
+                <div className="mb-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <span className="font-semibold leading-relaxed">{errorMsg}</span>
+                </div>
+              )}
 
-        {/* Tab Switcher: Login vs Register */}
-        <div className="grid grid-cols-2 p-2 bg-slate-950 border-b border-slate-800 text-xs font-black">
-          <button
-            onClick={() => handleModeSwitch('login')}
-            className={`py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
-              mode === 'login'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>লগইন (Login)</span>
-          </button>
-          <button
-            onClick={() => handleModeSwitch('register')}
-            className={`py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
-              mode === 'register'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>নতুন রেজিস্ট্রেশন (Register)</span>
-          </button>
-        </div>
+              {successMsg && (
+                <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold">{successMsg}</span>
+                </div>
+              )}
 
-        {/* Content Body */}
-        <div className="p-5">
-          {/* Feedback Messages */}
-          {errorMsg && (
-            <div className="mb-4 p-3 rounded-2xl bg-red-950/80 border border-red-700/80 text-red-200 text-xs flex items-start gap-2.5 animate-shake">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <div className="font-semibold leading-relaxed">{errorMsg}</div>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="mb-4 p-3 rounded-2xl bg-emerald-950/80 border border-emerald-700/80 text-emerald-200 text-xs flex items-center gap-2.5 animate-fadeIn">
-              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div className="font-semibold">{successMsg}</div>
-            </div>
-          )}
-
-          {/* ----------------- LOGIN FORM ----------------- */}
-          {mode === 'login' ? (
-            <form onSubmit={handleLogin} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  ইমেইল এড্রেস (বা ইউজারনেম)
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+              <form onSubmit={handleLogin} className="space-y-4">
+                {/* Email Input */}
+                <div>
                   <input
                     type="text"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="আপনার ইমেইল বা ইউজারনেম দিন"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="Email or Username"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all"
                     required
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  পাসওয়ার্ড (Password)
-                </label>
+                {/* Password Input */}
                 <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                   <input
                     type={showLoginPassword ? 'text' : 'password'}
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="আপনার পাসওয়ার্ড দিন"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="Password"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-4 py-3 pr-11 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all font-mono"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowLoginPassword(!showLoginPassword)}
-                    className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-200 cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-1"
                   >
                     {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
-              >
-                {isLoading ? (
-                  <span>যাচাই হচ্ছে...</span>
-                ) : (
-                  <>
-                    <span>লগইন করুন (Login)</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+                {/* Login Button matching screenshot black pill */}
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs sm:text-sm shadow-lg active:scale-98 transition-all cursor-pointer disabled:opacity-50 mt-1"
+                >
+                  {isLoading ? 'Checking...' : 'Sign In'}
+                </button>
 
-              {/* Switch to Register link */}
-              <div className="text-center pt-2">
-                <p className="text-xs text-slate-400">
-                  এখনো কোনো অ্যাকাউন্ট নেই?{' '}
+                {/* Forgot Password Link */}
+                <div className="text-center pt-1">
                   <button
                     type="button"
-                    onClick={() => handleModeSwitch('register')}
-                    className="font-bold text-amber-400 hover:underline cursor-pointer ml-1"
+                    onClick={() => alert('পাসওয়ার্ড ভুলে গেলে এডমিন হেল্পলাইনে যোগাযোগ করুন।')}
+                    className="text-xs text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
                   >
-                    নতুন রেজিস্ট্রেশন করুন
+                    Forgot your password?
                   </button>
-                </p>
-              </div>
+                </div>
+              </form>
+            </div>
 
-            </form>
-          ) : (
-            /* ----------------- REGISTER FORM ----------------- */
-            <form onSubmit={handleRegister} className="space-y-3">
-              {/* Username */}
+            {/* Footer: Register link */}
+            <div className="text-center mt-6">
+              <p className="text-xs text-slate-400">
+                No account?{' '}
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('register')}
+                  className="font-bold text-white hover:underline cursor-pointer ml-1"
+                >
+                  Register
+                </button>
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* ===================== SIGN UP VIEW ===================== */
+          <div className="animate-fadeIn">
+            {/* Top Header with Back button matching Screenshot 1 (Middle) */}
+            <div className="flex items-center gap-3 mb-5 px-1">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('login')}
+                className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-white flex items-center justify-center hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Back to Login"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  ইউজারনেম / গেমার নাম (Username)
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                <h1 className="text-2xl font-extrabold text-white tracking-tight">
+                  Let's Start
+                </h1>
+                <p className="text-xs text-slate-400">Create an account</p>
+              </div>
+            </div>
+
+            {/* Main White Card matching Screenshot 1 */}
+            <div className="bg-white text-slate-900 rounded-3xl p-6 shadow-2xl">
+              <h2 className="text-center font-extrabold text-lg text-slate-900 mb-4 tracking-tight">
+                Sign Up
+              </h2>
+
+              {/* Feedback Messages */}
+              {errorMsg && (
+                <div className="mb-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <span className="font-semibold leading-relaxed">{errorMsg}</span>
+                </div>
+              )}
+
+              {successMsg && (
+                <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold">{successMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleRegister} className="space-y-3">
+                {/* First Name / Username */}
+                <div>
                   <input
                     type="text"
                     value={regUsername}
                     onChange={(e) => setRegUsername(e.target.value)}
-                    placeholder="যেমন: Mahin_OP"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="First Name / Username"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all"
                     required
                   />
                 </div>
-              </div>
 
-              {/* Email */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  ইমেইল এড্রেস (Email Address)
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                {/* Email Address */}
+                <div>
                   <input
                     type="email"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="যেমন: name@example.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="Email Address"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all"
                     required
                   />
                 </div>
-              </div>
 
-              {/* Free Fire UID */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  ফ্রি ফায়ার প্লেয়ার UID (Free Fire UID)
-                </label>
-                <div className="relative">
-                  <Hash className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                {/* Mobile Number & Free Fire UID */}
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="tel"
+                    placeholder="Mobile Number"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all font-mono"
+                  />
                   <input
                     type="text"
                     value={regUid}
                     onChange={(e) => setRegUid(e.target.value.replace(/\D/g, ''))}
-                    placeholder="যেমন: 592817342"
-                    className="w-full font-mono bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="Free Fire UID"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all font-mono"
                     required
                   />
                 </div>
-                <span className="text-[10px] text-slate-500 mt-0.5 block">
-                  কাস্টম রুমে জয়েন ও প্রাইজ প্রদানের জন্য আপনার সঠিক FF UID দিন
-                </span>
-              </div>
 
-              {/* Password */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  পাসওয়ার্ড (Password)
-                </label>
+                {/* Password */}
                 <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
                   <input
                     type={showRegPassword ? 'text' : 'password'}
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
-                    placeholder="কমপক্ষে ৪ অক্ষরের পাসওয়ার্ড দিন"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="Password"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-4 py-2.5 pr-11 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all font-mono"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowRegPassword(!showRegPassword)}
-                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200 cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-1"
                   >
                     {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
 
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  পাসওয়ার্ড নিশ্চিত করুন (Confirm Password)
-                </label>
+                {/* Repeat Password */}
                 <div className="relative">
-                  <ShieldCheck className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
                   <input
                     type={showRegConfirmPassword ? 'text' : 'password'}
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    placeholder="একই পাসওয়ার্ড পুনরায় লিখুন"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    placeholder="Repeat Password"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-xl px-4 py-2.5 pr-11 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-all font-mono"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
-                    className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200 cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-1"
                   >
-                    {showRegConfirmPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    {showRegConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3"
-              >
-                {isLoading ? (
-                  <span>রেজিস্ট্রেশন হচ্ছে...</span>
-                ) : (
-                  <>
-                    <span>রেজিস্ট্রেশন সম্পন্ন করুন</span>
-                    <CheckCircle className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+                {/* Terms and Conditions Checkbox matching screenshot */}
+                <div className="flex items-start gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="termsCheckbox"
+                    defaultChecked
+                    className="mt-1 rounded text-slate-900 focus:ring-slate-900"
+                    required
+                  />
+                  <label htmlFor="termsCheckbox" className="text-[11px] text-slate-500 leading-tight">
+                    Accept the terms and conditions and Privacy Policy
+                  </label>
+                </div>
 
-              {/* Switch to Login link */}
-              <div className="text-center pt-2">
-                <p className="text-xs text-slate-400">
-                  ইতোমধ্যে অ্যাকাউন্ট আছে?{' '}
-                  <button
-                    type="button"
-                    onClick={() => handleModeSwitch('login')}
-                    className="font-bold text-amber-400 hover:underline cursor-pointer ml-1"
-                  >
-                    লগইন করুন
-                  </button>
-                </p>
-              </div>
-            </form>
-          )}
-        </div>
+                {/* Create Account Button */}
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs sm:text-sm shadow-lg active:scale-98 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isLoading ? 'Creating Account...' : 'Create Account'}
+                </button>
+              </form>
+            </div>
+
+            {/* Footer: Sign in link */}
+            <div className="text-center mt-5">
+              <p className="text-xs text-slate-400">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('login')}
+                  className="font-bold text-white hover:underline cursor-pointer ml-1"
+                >
+                  Sign In
+                </button>
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

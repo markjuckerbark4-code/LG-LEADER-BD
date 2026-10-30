@@ -14,6 +14,9 @@ import {
   Edit2,
   Phone,
   Sparkles,
+  Share2,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -25,8 +28,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
   const { user, topPlayers, settings, updateProfile, logoutUser } = useTournament();
 
   const [activeModal, setActiveModal] = useState<
-    'rules' | 'topPlayers' | 'developer' | 'editProfile' | null
+    'rules' | 'topPlayers' | 'developer' | 'editProfile' | 'refer' | null
   >(null);
+  const [copiedReferral, setCopiedReferral] = useState(false);
 
   // Edit Profile Form State
   const [name, setName] = useState(user?.name || '');
@@ -132,31 +136,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         </div>
       </div>
 
-      {/* Menu List Items matching Image 3 strictly */}
-      <div className="p-4 max-w-xl mx-auto space-y-2.5">
-        {/* Dual Accounts Summary Card */}
-        <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-slate-400">একাউন্ট ব্যালেন্স বিবরণ</span>
-            <span className="text-xs font-black text-amber-400 tabular-nums">মোট: ৳{totalBalance}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-[10px] text-slate-400 block">মেইন একাউন্ট (ডিপোজিট)</span>
-              <span className="font-black text-sm text-sky-400 tabular-nums mt-0.5 block">
-                ৳{user.depositBalance || 0}
-              </span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-[10px] text-slate-400 block">গেম একাউন্ট (উইনিং)</span>
-              <span className="font-black text-sm text-emerald-400 tabular-nums mt-0.5 block">
-                ৳{user.winningBalance || 0}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Wallet item */}
+      {/* Menu List Items strictly matching Screenshot 3 (Left) */}
+      <div className="p-4 max-w-xl mx-auto space-y-2">
+        {/* 1. My Wallet */}
         <button
           onClick={onOpenWallet}
           className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
@@ -166,14 +148,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
               <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-100">Wallet</span>
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">My Wallet</span>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">ব্যালেন্স এড ও হিস্ট্রি দেখুন</p>
             </div>
           </div>
           <span className="text-xs font-black text-sky-500 tabular-nums">৳{totalBalance}</span>
         </button>
 
-        {/* Withdraw item */}
+        {/* 2. Withdraw */}
         <button
           onClick={onOpenWithdraw}
           className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
@@ -183,16 +165,33 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
               <BadgeDollarSign className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-100">Withdraw</span>
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">Withdraw</span>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                টাকা বিকাশ/নগদে তুলুন (সর্বনিম্ন ৳৫০)
+                টাকা বিকাশ/নগদে উত্তোলন করুন
               </p>
             </div>
           </div>
           <span className="text-xs font-black text-emerald-500 tabular-nums">৳{totalBalance}</span>
         </button>
 
-        {/* My Profile item */}
+        {/* 3. Refer and Earn (New item from screenshot 3) */}
+        <button
+          onClick={() => setActiveModal('refer')}
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+              <Share2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">Refer and Earn</span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">বন্ধুদের রেফার করে বোনাস জিতুন</p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-400" />
+        </button>
+
+        {/* 4. My Profile */}
         <button
           onClick={() => setActiveModal('editProfile')}
           className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
@@ -202,58 +201,41 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
               <User className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-100">My Profile</span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">নাম, UID ও নাম্বার পরিবর্তন</p>
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">My Profile</span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">নাম, UID ও একাউন্ট তথ্য</p>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
-        {/* All Rules item */}
+        {/* 5. App Rules */}
         <button
           onClick={() => setActiveModal('rules')}
           className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
               <CheckSquare className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-100">All Rules</span>
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">App Rules</span>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">টুর্নামেন্টের যাবতীয় নিয়মাবলী</p>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
-        {/* Top Players item */}
-        <button
-          onClick={() => setActiveModal('topPlayers')}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-100">Top Players</span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">সর্বোচ্চ অর্জনকারী প্লেয়ারগণ</p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
-        </button>
-
-        {/* Developer Profile item */}
+        {/* 6. Developer Profile */}
         <button
           onClick={() => setActiveModal('developer')}
           className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
               <Code2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-100">
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">
                 Developer Profile
               </span>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -264,17 +246,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
-        {/* Logout Button */}
-        <div className="pt-3">
+        {/* 7. Edit Profile */}
+        <button
+          onClick={() => setActiveModal('editProfile')}
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+              <Edit2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">
+                Edit Profile
+              </span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                প্রোফাইল তথ্য ও পাসওয়ার্ড আপডেট
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-400" />
+        </button>
+
+        {/* 8. Logout Button matching Screenshot 3 blue pill */}
+        <div className="pt-4">
           <button
             onClick={() => {
               if (confirm('আপনি কি নিশ্চিত যে আপনি লগআউট করতে চান?')) {
                 logoutUser();
               }
             }}
-            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-500 via-rose-600 to-red-600 hover:from-red-600 hover:to-rose-700 text-white font-extrabold text-sm shadow-md shadow-red-500/20 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3.5 rounded-full bg-[#1d8cf8] hover:bg-[#1264c5] text-white font-extrabold text-sm shadow-md shadow-sky-500/30 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <span>লগআউট করুন (Logout)</span>
+            <span>Logout</span>
           </button>
         </div>
       </div>
@@ -478,6 +481,83 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
                 সংরক্ষণ করুন (Save Profile)
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: REFER AND EARN */}
+      {activeModal === 'refer' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative w-full max-w-md rounded-3xl bg-slate-900 border border-slate-700 text-slate-100 p-5 shadow-2xl my-6">
+            <button
+              onClick={() => setActiveModal(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <Share2 className="w-5 h-5 text-sky-400" />
+              <h3 className="font-black text-base text-white">রেফার অ্যান্ড আর্ন (Refer & Earn)</h3>
+            </div>
+
+            <div className="bg-sky-950/40 border border-sky-800/40 rounded-2xl p-4 text-center mb-4">
+              <p className="text-xs text-sky-200 mb-1">আপনার রেফারেল কোড</p>
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <span className="font-mono font-black text-2xl text-sky-400 tracking-widest bg-slate-950/80 px-4 py-2 rounded-xl border border-sky-500/30">
+                  {user.username?.toUpperCase() || 'LG'}{user.id?.slice(-4) || '77'}
+                </span>
+                <button
+                  onClick={() => {
+                    const code = `${user.username?.toUpperCase() || 'LG'}${user.id?.slice(-4) || '77'}`;
+                    navigator.clipboard.writeText(code);
+                    setCopiedReferral(true);
+                    setTimeout(() => setCopiedReferral(false), 2000);
+                  }}
+                  className="p-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white transition-all shadow-md cursor-pointer"
+                  title="Copy Code"
+                >
+                  {copiedReferral ? <Check className="w-5 h-5 text-white" /> : <Copy className="w-5 h-5 text-white" />}
+                </button>
+              </div>
+              {copiedReferral && (
+                <p className="text-xs text-emerald-400 font-semibold mt-2">রেফার কোড কপি হয়েছে!</p>
+              )}
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-300 bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800">
+              <p className="font-bold text-white flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                কীভাবে বোনাস পাবেন?
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-slate-400">
+                <li>বন্ধুদের সাথে অ্যাপটির লিঙ্ক ও রেফার কোড শেয়ার করুন।</li>
+                <li>আপনার বন্ধু সাইন আপ করার সময় রেফার কোড ব্যবহার করলে উভয়েই পাবেন বিশেষ ওয়েলকাম বোনাস!</li>
+                <li>যত বেশি রেফার করবেন, তত বেশি ফ্রি টুর্নামেন্ট খেলার সুযোগ!</li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => {
+                const code = `${user.username?.toUpperCase() || 'LG'}${user.id?.slice(-4) || '77'}`;
+                const shareText = `${settings.siteName} টুর্নামেন্ট খেলে টাকা জিতুন! আমার রেফার কোড: ${code}\nএখনই জয়েন করুন: ${window.location.origin}`;
+                if (navigator.share) {
+                  navigator.share({
+                    title: settings.siteName,
+                    text: shareText,
+                    url: window.location.origin,
+                  }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(shareText);
+                  setCopiedReferral(true);
+                  setTimeout(() => setCopiedReferral(false), 2000);
+                }
+              }}
+              className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-sm shadow-md cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>বন্ধুদের সাথে শেয়ার করুন</span>
+            </button>
           </div>
         </div>
       )}
