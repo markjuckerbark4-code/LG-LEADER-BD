@@ -39,22 +39,22 @@ export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack
   };
 
   return (
-    <div className="w-full min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="w-full min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col">
       {/* Top Header matching Screenshot 2 (Middle): < Free Fire Matches */}
-      <div className="sticky top-0 z-20 w-full bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-md">
+      <div className="sticky top-0 z-20 w-full bg-white backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-slate-100 hover:text-white transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-slate-800 hover:text-slate-950 transition-colors cursor-pointer"
         >
-          <ArrowLeft className="w-5 h-5 text-slate-100" />
-          <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
+          <ArrowLeft className="w-5 h-5 text-slate-800" />
+          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
             {category.name} Matches
           </h2>
         </button>
 
         <button
           onClick={() => window.location.reload()}
-          className="p-2 rounded-full bg-slate-800 text-sky-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+          className="p-2 rounded-full bg-slate-100 text-sky-600 hover:text-slate-900 hover:bg-slate-200 transition-colors cursor-pointer"
           title="Refresh Matches"
         >
           <RotateCcw className="w-4 h-4" />
@@ -89,13 +89,13 @@ export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack
             return (
               <div
                 key={match.id}
-                className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden shadow-lg transition-all"
+                className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-sm transition-all"
               >
                 {/* Upper Match Info Row */}
                 <div className="p-3.5 pb-2.5">
                   <div className="flex items-start gap-3">
                     {/* Thumbnail on left matching Screenshot 2 */}
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-950 shrink-0 border border-slate-800">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-900 shrink-0 border border-slate-200">
                       <img
                         src={characterBanner}
                         alt={match.title}
@@ -111,10 +111,10 @@ export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-1">
                         <div>
-                          <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white leading-tight truncate">
+                          <h3 className="font-black text-sm sm:text-base text-slate-900 leading-tight truncate">
                             {match.title}
                           </h3>
-                          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+                          <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
                             {match.matchType} • {match.version}
                           </p>
                         </div>

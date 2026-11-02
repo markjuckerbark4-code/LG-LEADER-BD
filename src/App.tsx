@@ -60,9 +60,9 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col items-center">
       {/* Mobile-first ergonomic container centered on large viewports */}
-      <div className="w-full max-w-md min-h-screen bg-slate-950 flex flex-col shadow-2xl relative border-x border-slate-900">
+      <div className="w-full max-w-md min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col shadow-2xl relative border-x border-slate-200">
         {/* App Header with status bar & marquee */}
         <Header
           onOpenWallet={() => {
@@ -73,10 +73,10 @@ const AppContent: React.FC = () => {
         />
 
         {/* Dynamic View Content */}
-        <main className="flex-1 w-full flex flex-col">
+        <main className="flex-1 w-full flex flex-col bg-[#f8fafc]">
           {/* TAB 1: PLAY (Main Tournament Screen) */}
           {currentTab === 'play' && (
-            <div className="flex-1 w-full pb-20">
+            <div className="flex-1 w-full pb-20 bg-[#f8fafc]">
               {selectedCategory ? (
                 <MatchListModal
                   category={selectedCategory}
@@ -87,7 +87,7 @@ const AppContent: React.FC = () => {
                   }}
                 />
               ) : (
-                <div className="p-3 sm:p-4 space-y-4">
+                <div className="p-3 sm:p-4 space-y-4 bg-[#f8fafc]">
                   {/* Top How to Add Money Banner matching Screenshots 2 & 3 */}
                   <div
                     onClick={() => {
@@ -133,9 +133,9 @@ const AppContent: React.FC = () => {
                   </div>
 
                   {/* Running Notice Bar strictly matching Screenshots */}
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold overflow-hidden">
-                    <span className="shrink-0 text-amber-400 font-black">📢</span>
-                    <div className="truncate text-[11px] text-amber-200">
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold overflow-hidden">
+                    <span className="shrink-0 text-amber-600 font-black">📢</span>
+                    <div className="truncate text-[11px] text-amber-800 font-bold">
                       {settings.noticeText || 'সব টুর্নামেন্টে অংশ গ্রহন করুন এবং প্রতিদিন হাজার টাকা ইনকাম করুন!'}
                     </div>
                   </div>
@@ -143,7 +143,7 @@ const AppContent: React.FC = () => {
                   {/* Section 1: FREE FIRE */}
                   <div className="space-y-2.5">
                     <div className="text-center pt-1">
-                      <h2 className="text-xl font-black tracking-wider text-white uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                      <h2 className="text-lg font-black tracking-wider text-slate-800 uppercase">
                         FREE FIRE
                       </h2>
                     </div>
@@ -163,7 +163,7 @@ const AppContent: React.FC = () => {
                   {categories.length > 4 && (
                     <div className="space-y-2.5 pt-2">
                       <div className="text-center pt-1">
-                        <h2 className="text-xl font-black tracking-wider text-white uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                        <h2 className="text-lg font-black tracking-wider text-slate-800 uppercase">
                           LUDO AND FREE MATCH
                         </h2>
                       </div>

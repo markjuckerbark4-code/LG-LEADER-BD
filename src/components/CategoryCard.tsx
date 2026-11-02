@@ -23,10 +23,10 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({ category, onSelect }
   return (
     <button
       onClick={() => onSelect(category)}
-      className="group relative flex flex-col w-full text-left rounded-2xl overflow-hidden border border-slate-800/80 bg-white dark:bg-slate-900 shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+      className="group relative flex flex-col w-full text-left rounded-2xl overflow-hidden border border-slate-200/90 bg-white shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
     >
       {/* Upper art banner with Free Fire Character Illustration */}
-      <div className="relative w-full h-28 sm:h-32 overflow-hidden bg-slate-950">
+      <div className="relative w-full h-28 sm:h-32 overflow-hidden bg-slate-900">
         <img
           src={characterBanner}
           alt={category.name}
@@ -52,14 +52,14 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({ category, onSelect }
       </div>
 
       {/* Lower label banner matching screenshot 1 (Clean card base) */}
-      <div className="w-full bg-white dark:bg-slate-900 px-3 py-2.5 flex flex-col justify-center border-t border-slate-100 dark:border-slate-800">
+      <div className="w-full bg-white px-3 py-2.5 flex flex-col justify-center border-t border-slate-100">
         <div className="flex items-center justify-between">
-          <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white tracking-tight uppercase truncate">
+          <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 tracking-tight uppercase truncate">
             {category.name}
           </h3>
           <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0 ml-1" />
         </div>
-        <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+        <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
           {category.matchCount} Tournament {category.matchCount === 1 ? 'Match' : 'Matches'}
         </p>
       </div>

@@ -136,56 +136,56 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         </div>
       </div>
 
-      {/* Menu List Items strictly matching Screenshot 3 (Left) */}
-      <div className="p-4 max-w-xl mx-auto space-y-2">
+      {/* Menu List Items strictly matching Screenshot 3 (Left) with clean white background */}
+      <div className="w-full bg-[#f8fafc] text-slate-900 p-4 max-w-xl mx-auto space-y-2.5 min-h-[55vh]">
         {/* 1. My Wallet */}
         <button
           onClick={onOpenWallet}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">My Wallet</span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">ব্যালেন্স এড ও হিস্ট্রি দেখুন</p>
+              <span className="font-extrabold text-sm text-slate-800">My Wallet</span>
+              <p className="text-[11px] text-slate-500">ব্যালেন্স এড ও হিস্ট্রি দেখুন</p>
             </div>
           </div>
-          <span className="text-xs font-black text-sky-500 tabular-nums">৳{totalBalance}</span>
+          <span className="text-xs font-black text-sky-600 tabular-nums">৳{totalBalance}</span>
         </button>
 
         {/* 2. Withdraw */}
         <button
           onClick={onOpenWithdraw}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <BadgeDollarSign className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">Withdraw</span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="font-extrabold text-sm text-slate-800">Withdraw</span>
+              <p className="text-[11px] text-slate-500">
                 টাকা বিকাশ/নগদে উত্তোলন করুন
               </p>
             </div>
           </div>
-          <span className="text-xs font-black text-emerald-500 tabular-nums">৳{totalBalance}</span>
+          <span className="text-xs font-black text-emerald-600 tabular-nums">৳{totalBalance}</span>
         </button>
 
         {/* 3. Refer and Earn (New item from screenshot 3) */}
         <button
           onClick={() => setActiveModal('refer')}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <Share2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">Refer and Earn</span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">বন্ধুদের রেফার করে বোনাস জিতুন</p>
+              <span className="font-extrabold text-sm text-slate-800">Refer and Earn</span>
+              <p className="text-[11px] text-slate-500">বন্ধুদের রেফার করে বোনাস জিতুন</p>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -194,15 +194,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         {/* 4. My Profile */}
         <button
           onClick={() => setActiveModal('editProfile')}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <User className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">My Profile</span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">নাম, UID ও একাউন্ট তথ্য</p>
+              <span className="font-extrabold text-sm text-slate-800">My Profile</span>
+              <p className="text-[11px] text-slate-500">নাম, UID ও একাউন্ট তথ্য</p>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -211,15 +211,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         {/* 5. App Rules */}
         <button
           onClick={() => setActiveModal('rules')}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <CheckSquare className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">App Rules</span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">টুর্নামেন্টের যাবতীয় নিয়মাবলী</p>
+              <span className="font-extrabold text-sm text-slate-800">App Rules</span>
+              <p className="text-[11px] text-slate-500">টুর্নামেন্টের যাবতীয় নিয়মাবলী</p>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -228,17 +228,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         {/* 6. Developer Profile */}
         <button
           onClick={() => setActiveModal('developer')}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <Code2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">
+              <span className="font-extrabold text-sm text-slate-800">
                 Developer Profile
               </span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500">
                 অ্যাপ ডেভেলপার ও অফিসিয়াল তথ্য
               </p>
             </div>
@@ -249,17 +249,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
         {/* 7. Edit Profile */}
         <button
           onClick={() => setActiveModal('editProfile')}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer text-left"
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-sky-500/50 hover:bg-slate-50 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <Edit2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100">
+              <span className="font-extrabold text-sm text-slate-800">
                 Edit Profile
               </span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500">
                 প্রোফাইল তথ্য ও পাসওয়ার্ড আপডেট
               </p>
             </div>

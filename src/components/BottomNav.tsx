@@ -38,8 +38,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange })
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-2xl safe-area-pb">
-      <div className="max-w-md mx-auto grid grid-cols-5 h-16 items-center px-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_25px_rgba(0,0,0,0.08)]">
+      <div className="max-w-md mx-auto grid grid-cols-5 h-16 items-center px-1 bg-white">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;
@@ -55,8 +55,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange })
               <div
                 className={`flex items-center justify-center w-12 h-8 rounded-full transition-all duration-200 ${
                   isActive
-                    ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 scale-105'
-                    : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'
+                    ? 'bg-purple-100 text-purple-600 scale-105 shadow-xs'
+                    : 'text-slate-500 group-hover:text-slate-800'
                 }`}
               >
                 <Icon className={`w-5 h-5 transition-transform ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
@@ -66,8 +66,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange })
               <span
                 className={`text-[11px] font-semibold tracking-tight transition-colors mt-0.5 truncate max-w-full px-1 ${
                   isActive
-                    ? 'text-purple-600 dark:text-purple-300 font-bold'
-                    : 'text-slate-500 dark:text-slate-400'
+                    ? 'text-purple-600 font-bold'
+                    : 'text-slate-500 group-hover:text-slate-700'
                 }`}
               >
                 {tab.label}
