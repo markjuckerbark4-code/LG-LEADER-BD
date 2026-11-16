@@ -21,6 +21,10 @@ export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({ match, onClose, 
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      setFeedback({ type: 'error', message: 'ম্যাচে জয়েন করতে অনুগ্রহ করে একাউন্ট তৈরি করুন অথবা লগইন করুন।' });
+      return;
+    }
     if (!gamerName.trim()) {
       setFeedback({ type: 'error', message: 'অনুগ্রহ করে ফ্রি ফায়ার গেমার নাম দিন।' });
       return;

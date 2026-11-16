@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTournament } from '../context/TournamentContext';
-import { Bell, Wallet, ShieldCheck, Wifi, BatteryCharging, Signal } from 'lucide-react';
+import { Bell, Wallet, ShieldCheck, Wifi, BatteryCharging, Signal, User } from 'lucide-react';
 
 interface HeaderProps {
   onOpenWallet: () => void;
+  onOpenAuth?: () => void;
   currentTab: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenWallet }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onOpenAuth }) => {
   const { user, settings } = useTournament();
   const [timeStr, setTimeStr] = useState('09:58 PM');
 
@@ -62,29 +63,38 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet }) => {
           </div>
         </div>
 
-        {/* Right side actions: User Wallet Balance */}
+        {/* Right side actions: User Wallet Balance or Login Button */}
         <div className="flex items-center gap-2">
-          {/* User Wallet Balance Chip showing Main and Game accounts */}
-          <button
-            onClick={onOpenWallet}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-sm active:scale-95 transition-all text-xs font-bold cursor-pointer"
-            title={`মেইন একাউন্ট: ৳${user?.depositBalance || 0} | গেম একাউন্ট: ৳${user?.winningBalance || 0}`}
-          >
-            <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
-              <Wallet className="w-3.5 h-3.5 text-white" />
-            </div>
-            <div className="flex flex-col text-left leading-none">
-              <span className="text-[9px] text-sky-100 font-semibold">
-                মেইন ৳{user?.depositBalance || 0} • গেম ৳{user?.winningBalance || 0}
+          {user ? (
+            <button
+              onClick={onOpenWallet}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-sm active:scale-95 transition-all text-xs font-bold cursor-pointer"
+              title={`মেইন একাউন্ট: ৳${user.depositBalance || 0} | গেম একাউন্ট: ৳${user.winningBalance || 0}`}
+            >
+              <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+                <Wallet className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="flex flex-col text-left leading-none">
+                <span className="text-[9px] text-sky-100 font-semibold">
+                  মেইন ৳{user.depositBalance || 0} • গেম ৳{user.winningBalance || 0}
+                </span>
+                <span className="text-xs font-black text-white mt-0.5 tabular-nums">
+                  মোট ৳{totalBalance}
+                </span>
+              </div>
+              <span className="w-4 h-4 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] font-extrabold leading-none ml-0.5">
+                +
               </span>
-              <span className="text-xs font-black text-white mt-0.5 tabular-nums">
-                মোট ৳{totalBalance}
-              </span>
-            </div>
-            <span className="w-4 h-4 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] font-extrabold leading-none ml-0.5">
-              +
-            </span>
-          </button>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-black text-white shadow-sm active:scale-95 transition-all text-xs font-black cursor-pointer border border-slate-700/60"
+            >
+              <User className="w-3.5 h-3.5 text-amber-400" />
+              <span>লগইন / রেজিস্টার</span>
+            </button>
+          )}
         </div>
       </div>
 

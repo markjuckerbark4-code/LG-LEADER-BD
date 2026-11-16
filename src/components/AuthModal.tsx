@@ -14,13 +14,16 @@ import {
   ShieldCheck,
   ArrowRight,
   ArrowLeft,
+  X,
 } from 'lucide-react';
 
 interface AuthModalProps {
   onSuccess?: () => void;
+  onClose?: () => void;
+  reason?: string | null;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose, reason }) => {
   const { registerUser, loginUser, settings } = useTournament();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -74,7 +77,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
       setIsLoading(false);
       if (res.success) {
         setSuccessMsg(res.message);
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+          if (onClose) onClose();
+        }, 400);
       } else {
         setErrorMsg(res.message);
       }
@@ -127,7 +133,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
       if (res.success) {
         setSuccessMsg(res.message);
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+          if (onClose) onClose();
+        }, 400);
       } else {
         setErrorMsg(res.message);
       }
@@ -136,8 +145,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-slate-900 selection:text-white">
-      <div className="w-full max-w-sm flex flex-col my-auto">
+    <div
+      className={
+        onClose
+          ? 'fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 overflow-y-auto selection:bg-slate-900 selection:text-white animate-fadeIn'
+          : 'min-h-screen w-full bg-[#f8fafc] flex flex-col items-center justify-center p-4 selection:bg-slate-900 selection:text-white'
+      }
+    >
+      <div className="w-full max-w-sm flex flex-col my-auto relative">
+        {/* Modal Close Button */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute -top-3 -right-2 z-20 w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center shadow-lg border border-slate-700 cursor-pointer transition-transform active:scale-90"
+            title="বন্ধ করুন"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Action Interception Notice */}
+        {reason && (
+          <div className="mb-3 p-3 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs font-semibold flex items-center gap-2 shadow-md">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{reason}</span>
+          </div>
+        )}
+
         {/* ===================== LOGIN VIEW ===================== */}
         {mode === 'login' ? (
           <div className="animate-fadeIn">

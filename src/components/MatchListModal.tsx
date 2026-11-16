@@ -22,9 +22,15 @@ interface MatchListModalProps {
   category: GameCategory;
   onBack: () => void;
   onOpenWallet: () => void;
+  onRequireAuth?: (reason?: string) => void;
 }
 
-export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack, onOpenWallet }) => {
+export const MatchListModal: React.FC<MatchListModalProps> = ({
+  category,
+  onBack,
+  onOpenWallet,
+  onRequireAuth,
+}) => {
   const { matches, user } = useTournament();
   const [selectedMatchForJoin, setSelectedMatchForJoin] = useState<TournamentMatch | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -221,7 +227,13 @@ export const MatchListModal: React.FC<MatchListModalProps> = ({ category, onBack
                         </span>
                       ) : (
                         <button
-                          onClick={() => setSelectedMatchForJoin(match)}
+                          onClick={() => {
+                            if (!user) {
+                              onRequireAuth?.('টুর্নামেন্ট ম্যাচে জয়েন করতে অনুগ্রহ করে একটি একাউন্ট তৈরি করুন অথবা লগইন করুন।');
+                              return;
+                            }
+                            setSelectedMatchForJoin(match);
+                          }}
                           className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                         >
                           Join

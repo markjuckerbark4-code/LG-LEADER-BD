@@ -134,5 +134,34 @@ export interface WebsiteSettings {
   maxDeposit?: number;
   minWithdraw?: number;
   maxWithdrawPerDay?: number;
+  // Web Lock Security
+  isWebLockEnabled?: boolean;
+  webLockPin?: string;
+  webLockTitle?: string;
+  webLockSubtitle?: string;
+  // Admin Panel Security
+  adminPassword?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type:
+    | 'room_details'
+    | 'deposit_approved'
+    | 'deposit_rejected'
+    | 'withdraw_approved'
+    | 'withdraw_rejected'
+    | 'match_prize'
+    | 'system';
+  title: string;
+  message: string;
+  matchId?: string;
+  matchTitle?: string;
+  roomId?: string;
+  roomPassword?: string;
+  read: boolean;
+  createdAt: string;
+  timestamp: number;
 }
 

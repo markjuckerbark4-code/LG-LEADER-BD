@@ -32,8 +32,9 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
   const minWithdraw = settings.minWithdraw ?? 50;
   const maxWithdrawPerDay = settings.maxWithdrawPerDay ?? 1000;
 
-  // Unified single balance (Winning account and Main account)
-  const totalBalance = user ? (user.depositBalance || 0) + (user.winningBalance || 0) : 0;
+  // Separate Main (deposit) & Winning (withdrawable) balances
+  const depositBalance = user ? user.depositBalance || 0 : 0;
+  const winningBalance = user ? user.winningBalance || 0 : 0;
 
   // Daily withdraw limit calculations
   const today = new Date().toDateString();
@@ -46,7 +47,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   const remainingDailyLimit = Math.max(0, maxWithdrawPerDay - todayWithdrawn);
-  const maxCanWithdraw = Math.min(totalBalance, remainingDailyLimit);
+  const maxCanWithdraw = Math.min(winningBalance, remainingDailyLimit);
 
   // Method details matching Screenshot 3
   const getMethodDetails = (method: 'bKash' | 'Nagad' | 'Rocket') => {
@@ -133,10 +134,10 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
       });
       return;
     }
-    if (withdrawAmount > totalBalance) {
+    if (withdrawAmount > winningBalance) {
       setFeedback({
         type: 'error',
-        message: `পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${totalBalance}।`,
+        message: `পর্যাপ্ত উইনিং ব্যালেন্স নেই! শুধুমাত্র উইনিং একাউন্টের টাকা (৳${winningBalance}) উত্তোলন করা যাবে।`,
       });
       return;
     }
@@ -419,21 +420,21 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
         {/* ======================================================== */}
         {activeTab === 'withdraw' && (
           <form onSubmit={handleWithdrawSubmit} className="space-y-4">
-            {/* Top Available Balance Card strictly matching Screenshot 3 (Right) */}
+            {/* Top Withdrawable Winning Balance Card */}
             <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-slate-100 flex flex-col items-center justify-center">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Available Balance
+                উইনিং একাউন্ট ব্যালেন্স (উত্তোলনযোগ্য)
               </span>
               <div className="flex items-center gap-1.5 mt-1">
                 <Coins className="w-5 h-5 text-emerald-600" />
                 <span className="text-2xl font-black text-slate-900 tabular-nums">
-                  ৳{totalBalance}
+                  ৳{winningBalance}
                 </span>
               </div>
-              <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400 font-medium">
-                <span>মেইন একাউন্ট: ৳{user?.depositBalance || 0}</span>
+              <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500 font-semibold">
+                <span>মেইন একাউন্ট: ৳{depositBalance}</span>
                 <span>•</span>
-                <span>গেম একাউন্ট: ৳{user?.winningBalance || 0}</span>
+                <span className="text-emerald-600">শুধু উইনিং ব্যালেন্স উত্তোলনযোগ্য</span>
               </div>
             </div>
 
@@ -511,13 +512,13 @@ export const WalletModal: React.FC<WalletModalProps> = ({ onClose, defaultTab = 
             <button
               type="submit"
               disabled={
-                totalBalance < minWithdraw ||
+                winningBalance < minWithdraw ||
                 remainingDailyLimit < minWithdraw ||
                 withdrawAmount < minWithdraw ||
                 withdrawAmount > maxCanWithdraw
               }
               className={`w-full py-3.5 rounded-full font-black text-sm tracking-wider uppercase shadow-xl transition-all ${
-                totalBalance >= minWithdraw &&
+                winningBalance >= minWithdraw &&
                 remainingDailyLimit >= minWithdraw &&
                 withdrawAmount >= minWithdraw &&
                 withdrawAmount <= maxCanWithdraw

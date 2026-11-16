@@ -3,7 +3,11 @@ import { useTournament } from '../context/TournamentContext';
 import { DiamondPackage } from '../types';
 import { Gem, ShieldCheck, Zap, X, Copy, Check, CheckCircle, AlertCircle } from 'lucide-react';
 
-export const ShopView: React.FC = () => {
+interface ShopViewProps {
+  onRequireAuth?: (reason?: string) => void;
+}
+
+export const ShopView: React.FC<ShopViewProps> = ({ onRequireAuth }) => {
   const { diamondPackages, user, settings, buyDiamondTopup } = useTournament();
   const [selectedPkg, setSelectedPkg] = useState<DiamondPackage | null>(null);
   const [playerUid, setPlayerUid] = useState(user?.freeFireUid || '');
@@ -28,6 +32,10 @@ export const ShopView: React.FC = () => {
 
   const handlePurchase = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      onRequireAuth?.('অর্ডার সম্পন্ন করতে অনুগ্রহ করে একটি একাউন্ট তৈরি করুন অথবা লগইন করুন।');
+      return;
+    }
     if (!selectedPkg) return;
     setFeedback(null);
 
@@ -74,6 +82,10 @@ export const ShopView: React.FC = () => {
             <div
               key={pkg.id}
               onClick={() => {
+                if (!user) {
+                  onRequireAuth?.('ডায়মন্ড টপ-আপ বা অর্ডার করতে অনুগ্রহ করে একটি একাউন্ট তৈরি করুন অথবা লগইন করুন।');
+                  return;
+                }
                 setSelectedPkg(pkg);
                 setFeedback(null);
               }}

@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useTournament } from '../context/TournamentContext';
 import { Key, Copy, Check, Clock, Trophy, AlertCircle } from 'lucide-react';
 
-export const MyMatchesView: React.FC = () => {
+interface MyMatchesViewProps {
+  onRequireAuth?: (reason?: string) => void;
+}
+
+export const MyMatchesView: React.FC<MyMatchesViewProps> = ({ onRequireAuth }) => {
   const { matches, user } = useTournament();
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -74,7 +78,23 @@ export const MyMatchesView: React.FC = () => {
 
       {/* Matches List */}
       <div className="p-4 max-w-2xl mx-auto space-y-4">
-        {filteredMatches.length === 0 ? (
+        {!user ? (
+          <div className="py-12 px-5 text-center rounded-3xl bg-white border border-slate-200 shadow-sm">
+            <div className="w-14 h-14 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mx-auto mb-3 border border-sky-100">
+              <Trophy className="w-7 h-7" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-800">লগইন বা একাউন্ট প্রয়োজন</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
+              আপনি যে সকল টুর্নামেন্টে জয়েন করেছেন তা দেখতে এবং রুম আইডি ও পাসওয়ার্ড পেতে অনুগ্রহ করে একাউন্ট তৈরি করুন অথবা লগইন করুন।
+            </p>
+            <button
+              onClick={() => onRequireAuth?.('জয়েন করা টুর্নামেন্ট দেখতে লগইন করুন অথবা নতুন একাউন্ট তৈরি করুন')}
+              className="mt-4 px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              লগইন / একাউন্ট তৈরি করুন
+            </button>
+          </div>
+        ) : filteredMatches.length === 0 ? (
           <div className="py-12 px-4 text-center rounded-3xl bg-white border border-slate-200 shadow-xs">
             <AlertCircle className="w-10 h-10 text-slate-400 mx-auto mb-2" />
             <h3 className="font-extrabold text-sm text-slate-800">এখনো কোনো ম্যাচে জয়েন করেননি</h3>

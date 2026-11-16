@@ -17,14 +17,20 @@ import {
   Share2,
   Copy,
   Check,
+  Lock,
 } from 'lucide-react';
 
 interface ProfileViewProps {
   onOpenWallet: () => void;
   onOpenWithdraw: () => void;
+  onOpenAuth?: () => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWithdraw }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({
+  onOpenWallet,
+  onOpenWithdraw,
+  onOpenAuth,
+}) => {
   const { user, topPlayers, settings, updateProfile, logoutUser } = useTournament();
 
   const [activeModal, setActiveModal] = useState<
@@ -51,8 +57,144 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
 
   if (!user) {
     return (
-      <div className="w-full p-8 text-center text-slate-400">
-        <p>প্রোফাইল দেখতে অনুগ্রহ করে প্রথমে লগইন করুন।</p>
+      <div className="w-full pb-24 animate-fadeIn">
+        {/* Guest Header Card */}
+        <div className="w-full bg-gradient-to-b from-[#38b6ff] via-[#1d8cf8] to-[#1264c5] px-4 pt-8 pb-7 text-white text-center shadow-lg">
+          <div className="relative mx-auto w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 p-1 shadow-md flex items-center justify-center">
+            <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+              <User className="w-9 h-9 text-slate-700" />
+            </div>
+          </div>
+          <h2 className="text-xl font-black tracking-tight mt-3 text-white">গেস্ট ভিজিটর (Guest)</h2>
+          <p className="text-xs text-sky-100 max-w-xs mx-auto mt-1">
+            ম্যাচ খেলতে ও ওয়ালেট ব্যবহার করতে অনুগ্রহ করে একটি একাউন্ট তৈরি করুন অথবা লগইন করুন।
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <button
+              onClick={onOpenAuth}
+              className="px-6 py-2.5 rounded-full bg-white text-blue-700 hover:bg-amber-400 hover:text-slate-950 font-black text-xs shadow-lg active:scale-95 transition-all cursor-pointer"
+            >
+              লগইন / একাউন্ট তৈরি করুন
+            </button>
+          </div>
+        </div>
+
+        {/* Guest Menu List Items */}
+        <div className="w-full bg-[#f8fafc] text-slate-900 p-4 max-w-xl mx-auto space-y-2.5">
+          {/* Rules */}
+          <button
+            onClick={() => setActiveModal('rules')}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-all cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
+                <CheckSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-extrabold text-sm text-slate-800">App Rules</span>
+                <p className="text-[11px] text-slate-500">টুর্নামেন্টের যাবতীয় নিয়মাবলী</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </button>
+
+          {/* Developer Profile */}
+          <button
+            onClick={() => setActiveModal('developer')}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-all cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
+                <Code2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-extrabold text-sm text-slate-800">Developer Profile</span>
+                <p className="text-[11px] text-slate-500">অ্যাপ ডেভেলপার ও অফিসিয়াল তথ্য</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </button>
+
+          {/* Web Lock Quick Test */}
+          <button
+            onClick={() => {
+              try {
+                sessionStorage.removeItem('lgleader_web_unlocked');
+                localStorage.removeItem('lgleader_web_unlocked');
+                window.location.reload();
+              } catch {
+                window.location.reload();
+              }
+            }}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 shadow-sm hover:bg-amber-100/70 transition-all cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                  <span>Web Lock</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 font-bold">সিকিউরিটি</span>
+                </span>
+                <p className="text-[11px] text-slate-500">ওয়েবসাইটটি তাৎক্ষণিক পিন দিয়ে লক করুন</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+
+        {/* Modals for Rules & Developer Profile */}
+        {activeModal === 'rules' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-200 text-slate-900 p-5 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="font-black text-base text-slate-900">টুর্নামেন্টের নিয়মাবলী (Rules)</h3>
+                <button onClick={() => setActiveModal(null)} className="p-1 rounded-full text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="py-4 space-y-2 text-xs text-slate-600 max-h-72 overflow-y-auto">
+                {settings.rules?.map((rule, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
+                    <span>{rule}</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
+              >
+                বুঝেছি (Close)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeModal === 'developer' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-200 text-slate-900 p-5 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="font-black text-base text-slate-900">Developer Profile</h3>
+                <button onClick={() => setActiveModal(null)} className="p-1 rounded-full text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="py-4 space-y-3 text-xs text-slate-600">
+                <p><strong>App:</strong> {settings.siteName || 'LG LEADER BD'}</p>
+                <p><strong>Platform:</strong> Free Fire Esports Tournament Platform</p>
+                <p><strong>Support:</strong> {settings.helplinePhone}</p>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
+              >
+                বুঝেছি (Close)
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -164,15 +306,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
             <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center">
               <BadgeDollarSign className="w-5 h-5" />
             </div>
-            <div>
-              <span className="font-extrabold text-sm text-slate-800">Withdraw</span>
-              <p className="text-[11px] text-slate-500">
-                টাকা বিকাশ/নগদে উত্তোলন করুন
-              </p>
+              <div>
+                <span className="font-extrabold text-sm text-slate-800">Withdraw</span>
+                <p className="text-[11px] text-slate-500">
+                  উইনিং একাউন্ট থেকে টাকা উত্তোলন করুন
+                </p>
+              </div>
             </div>
-          </div>
-          <span className="text-xs font-black text-emerald-600 tabular-nums">৳{totalBalance}</span>
-        </button>
+            <span className="text-xs font-black text-emerald-600 tabular-nums">৳{user.winningBalance || 0}</span>
+          </button>
 
         {/* 3. Refer and Earn (New item from screenshot 3) */}
         <button
@@ -267,7 +409,35 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenWallet, onOpenWi
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
-        {/* 8. Logout Button matching Screenshot 3 blue pill */}
+        {/* 8. Web Lock Button */}
+        <button
+          onClick={() => {
+            try {
+              sessionStorage.removeItem('lgleader_web_unlocked');
+              localStorage.removeItem('lgleader_web_unlocked');
+              window.location.reload();
+            } catch {
+              window.location.reload();
+            }
+          }}
+          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 shadow-sm hover:bg-amber-100/70 transition-all cursor-pointer text-left group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+                <span>Web Lock</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 font-bold">সিকিউরিটি</span>
+              </span>
+              <p className="text-[11px] text-slate-500">ওয়েবসাইটটি তাৎক্ষণিক পিন দিয়ে লক করুন</p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-600 transition-colors" />
+        </button>
+
+        {/* 9. Logout Button matching Screenshot 3 blue pill */}
         <div className="pt-4">
           <button
             onClick={() => {

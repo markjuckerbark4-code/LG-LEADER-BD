@@ -70,7 +70,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     updateSettings,
   } = useTournament();
 
-  // Admin Password Protection: mahin44@@
+  // Admin Password Protection: dynamically loaded from settings (default: mahin44@@)
+  const currentAdminPass = settings?.adminPassword?.trim() || 'mahin44@@';
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('lg_admin_auth_v1') === 'true';
   });
@@ -80,7 +82,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === 'mahin44@@') {
+    if (passwordInput === currentAdminPass) {
       sessionStorage.setItem('lg_admin_auth_v1', 'true');
       setIsAuthenticated(true);
       setPasswordError('');
@@ -176,6 +178,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const [settingsForm, setSettingsForm] = useState(settings);
   const [newRuleInput, setNewRuleInput] = useState('');
   const [settingsSavedSuccess, setSettingsSavedSuccess] = useState(false);
+  const [showAdminPassInSettings, setShowAdminPassInSettings] = useState(false);
+  const [adminPassFeedback, setAdminPassFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     if (settings) {
@@ -1791,6 +1795,251 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                   className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
                   required
                 />
+              </div>
+
+              {/* 7. Web Lock Security System */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-amber-500/30 space-y-4 relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                        <span>৭. ওয়েব লক সিকিউরিটি (Web Lock PIN Security)</span>
+                        <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
+                          {settingsForm.isWebLockEnabled !== false ? '🔒 লক চালু (ACTIVE)' : '🔓 লক বন্ধ (DISABLED)'}
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        কেউ ওয়েবসাইটের লিংকে ক্লিক করলে সিকিউরিটি পিন লক স্ক্রিন দেখাবে। সঠিক পিন দিলে আনলক হবে।
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  {/* Web Lock Toggle Switch */}
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="block text-xs font-bold text-white">ওয়েব লক স্ট্যাটাস:</span>
+                      <span className="text-[10px] text-slate-400">
+                        {settingsForm.isWebLockEnabled !== false
+                          ? 'ওয়েবসাইট সম্পূর্ণ পিন দ্বারা সুরক্ষিত'
+                          : 'সরাসরি ওয়েবসাইট ওপেন হবে (লক নেই)'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSettingsForm({
+                          ...settingsForm,
+                          isWebLockEnabled: !(settingsForm.isWebLockEnabled !== false),
+                        })
+                      }
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        settingsForm.isWebLockEnabled !== false ? 'bg-amber-500' : 'bg-slate-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          settingsForm.isWebLockEnabled !== false ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Web Lock Security PIN */}
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-white">
+                        সিকিউরিটি পিন (Security PIN):
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setSettingsForm({ ...settingsForm, webLockPin: '200628' })}
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-bold"
+                      >
+                        ডিফল্ট (200628)
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        maxLength={8}
+                        value={settingsForm.webLockPin ?? '200628'}
+                        onChange={(e) =>
+                          setSettingsForm({
+                            ...settingsForm,
+                            webLockPin: e.target.value.trim(),
+                          })
+                        }
+                        placeholder="200628"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-amber-400 font-mono font-black text-sm tracking-widest focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      ডিফল্ট পিন: <strong className="text-amber-400 font-mono">200628</strong> (ইউজার এই পিন দিয়ে ওয়েবসাইট আনলক করবে)।
+                    </p>
+                  </div>
+                </div>
+
+                {/* Lock Screen Custom Titles */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1 text-xs">
+                      লক স্ক্রিন টাইটেল (Title):
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.webLockTitle ?? 'LG LEADER BD - সিকিউরিটি লক'}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, webLockTitle: e.target.value })}
+                      placeholder="LG LEADER BD - সিকিউরিটি লক"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1 text-xs">
+                      লক স্ক্রিন সাবটাইটেল / মেসেজ:
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.webLockSubtitle ?? 'ওয়েবসাইটটিতে প্রবেশ করতে ৬ ডিজিটের সিকিউরিটি পিন দিন'}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, webLockSubtitle: e.target.value })}
+                      placeholder="ওয়েবসাইটটিতে প্রবেশ করতে ৬ ডিজিটের সিকিউরিটি পিন দিন"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Re-lock test trigger */}
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-[11px] text-amber-300">
+                    💡 <strong>লক টেস্ট করুন:</strong> ব্রাউজার থেকে আনলক ক্যাশ ক্লিয়ার করে এখনই লক স্ক্রিন দেখতে পারেন।
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        sessionStorage.removeItem('lgleader_web_unlocked');
+                        localStorage.removeItem('lgleader_web_unlocked');
+                        alert('লক স্ক্রিন টেস্ট রিসেট হয়েছে! সেভ করার পর ওয়েবসাইটে গেলে লক স্ক্রিন দেখা যাবে।');
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold cursor-pointer transition-colors"
+                  >
+                    🔄 ব্রাউজারে রি-লক টেস্ট করুন
+                  </button>
+                </div>
+              </div>
+
+              {/* 8. Admin Panel Password Management */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-red-500/30 space-y-4 relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-red-400 uppercase tracking-wider flex items-center gap-2">
+                        <span>৮. অ্যাডমিন প্যানেল পাসওয়ার্ড পরিবর্তন (Admin Password Change)</span>
+                        <span className="text-[10px] bg-red-500/20 text-red-300 border border-red-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
+                          Admin Security
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        অ্যাডমিন প্যানেলে (/admin) লগইন করার পাসওয়ার্ড পরিবর্তন করুন। এটি ডাটাবেসে সুরক্ষিতভাবে সংরক্ষিত থাকবে।
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-white">
+                      অ্যাডমিন পাসওয়ার্ড (Admin Login Password):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminPassInSettings(!showAdminPassInSettings)}
+                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                      >
+                        {showAdminPassInSettings ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        <span>{showAdminPassInSettings ? 'লুকান' : 'দেখুন'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettingsForm({ ...settingsForm, adminPassword: 'mahin44@@' });
+                          setAdminPassFeedback('ডিফল্ট পাসওয়ার্ড (mahin44@@) সিলেক্ট করা হয়েছে! সেভ করতে বাটনে চাপুন।');
+                          setTimeout(() => setAdminPassFeedback(null), 3500);
+                        }}
+                        className="text-[10px] text-amber-400 hover:text-amber-300 font-bold cursor-pointer"
+                      >
+                        ডিফল্ট (mahin44@@)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type={showAdminPassInSettings ? 'text' : 'password'}
+                      value={settingsForm.adminPassword ?? 'mahin44@@'}
+                      onChange={(e) => {
+                        setSettingsForm({
+                          ...settingsForm,
+                          adminPassword: e.target.value,
+                        });
+                        if (adminPassFeedback) setAdminPassFeedback(null);
+                      }}
+                      placeholder="নতুন পাসওয়ার্ড লিখুন..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold text-sm tracking-wide focus:outline-none focus:border-red-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
+                    <span className="text-slate-400">
+                      বর্তমান পাসওয়ার্ড:{' '}
+                      <strong className="text-amber-400 font-mono">
+                        {showAdminPassInSettings ? (settingsForm.adminPassword || 'mahin44@@') : '••••••••'}
+                      </strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pass = settingsForm.adminPassword?.trim();
+                        if (!pass || pass.length < 4) {
+                          alert('পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে!');
+                          return;
+                        }
+                        updateSettings({ adminPassword: pass });
+                        setAdminPassFeedback('✅ অ্যাডমিন পাসওয়ার্ড সফলভাবে আপডেট ও ডাটাবেসে সেভ হয়েছে!');
+                        setTimeout(() => setAdminPassFeedback(null), 3500);
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer shadow-md transition-colors flex items-center gap-1.5"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>পাসওয়ার্ড তাৎক্ষণিক সেভ করুন</span>
+                    </button>
+                  </div>
+
+                  {adminPassFeedback && (
+                    <div className="p-2.5 rounded-lg bg-emerald-950/80 border border-emerald-700/80 text-emerald-300 text-xs font-bold animate-fade-in flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 shrink-0" />
+                      <span>{adminPassFeedback}</span>
+                    </div>
+                  )}
+
+                  <div className="p-2.5 rounded-lg bg-red-950/30 border border-red-900/50 text-[11px] text-red-300/90 leading-relaxed">
+                    ⚠️ <strong>গুরুত্বপূর্ণ:</strong> পাসওয়ার্ড পরিবর্তন করার পর মনে রাখবেন। পরবর্তীতে অ্যাডমিন প্যানেলে লগইন করার সময় এই নতুন পাসওয়ার্ডটি প্রদান করতে হবে।
+                  </div>
+                </div>
               </div>
 
               <button

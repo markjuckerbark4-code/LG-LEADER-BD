@@ -4,7 +4,7 @@ import { Header } from './components/Header';
 import { BottomNav, TabType } from './components/BottomNav';
 import { CategoryCard } from './components/CategoryCard';
 import { MatchListModal } from './components/MatchListModal';
-import { ShopView } from './components/ShopView';
+import { NotificationsView } from './components/NotificationsView';
 import { MyMatchesView } from './components/MyMatchesView';
 import { ResultsView } from './components/ResultsView';
 import { ProfileView } from './components/ProfileView';
@@ -12,18 +12,56 @@ import { FloatingSupport } from './components/FloatingSupport';
 import { WalletModal } from './components/WalletModal';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/AuthModal';
+import { WebLockScreen } from './components/WebLockScreen';
 
 const AppContent: React.FC = () => {
-  const { categories, selectedCategory, setSelectedCategory, user, settings } = useTournament();
+  const {
+    categories,
+    selectedCategory,
+    setSelectedCategory,
+    user,
+    settings,
+    unreadNotificationCount,
+  } = useTournament();
 
   // Route state: checks whether path is '/admin'
   const [isAdminPath, setIsAdminPath] = useState<boolean>(() => {
     return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin');
   });
 
+  // Web Lock Unlock State: stored in session & local storage
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
+    try {
+      return (
+        sessionStorage.getItem('lgleader_web_unlocked') === 'true' ||
+        localStorage.getItem('lgleader_web_unlocked') === 'true'
+      );
+    } catch {
+      return false;
+    }
+  });
+
   const [currentTab, setCurrentTab] = useState<TabType>('play');
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [walletDefaultTab, setWalletDefaultTab] = useState<'deposit' | 'withdraw' | 'history'>('deposit');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalReason, setAuthModalReason] = useState<string | null>(null);
+
+  const handleRequireAuth = (reason?: string) => {
+    setAuthModalReason(
+      reason || 'এই ফিচারটি ব্যবহার করতে অনুগ্রহ করে একটি একাউন্ট তৈরি করুন অথবা লগইন করুন।'
+    );
+    setIsAuthModalOpen(true);
+  };
+
+  const handleOpenWallet = (tab: 'deposit' | 'withdraw' | 'history' = 'deposit') => {
+    if (!user) {
+      handleRequireAuth('টাকা ডিপোজিট বা ওয়ালেট ব্যবহার করতে অনুগ্রহ করে একটি একাউন্ট তৈরি করুন অথবা লগইন করুন।');
+      return;
+    }
+    setWalletDefaultTab(tab);
+    setIsWalletOpen(true);
+  };
 
   // Synchronize browser history and path changes
   useEffect(() => {
@@ -50,12 +88,14 @@ const AppContent: React.FC = () => {
     return <AdminPanel onBackToApp={navigateToApp} />;
   }
 
-  // If user is not logged in, show beautiful Login / Registration form first!
-  if (!user) {
+  // Web Lock Check: When enabled in settings and visitor hasn't entered the security PIN
+  const isWebLockActive = settings?.isWebLockEnabled !== false;
+  if (isWebLockActive && !isUnlocked) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center">
-        <AuthModal />
-      </div>
+      <WebLockScreen
+        onUnlock={() => setIsUnlocked(true)}
+        onAdminAccess={navigateToAdmin}
+      />
     );
   }
 
@@ -65,10 +105,8 @@ const AppContent: React.FC = () => {
       <div className="w-full max-w-md min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col shadow-2xl relative border-x border-slate-200">
         {/* App Header with status bar & marquee */}
         <Header
-          onOpenWallet={() => {
-            setWalletDefaultTab('deposit');
-            setIsWalletOpen(true);
-          }}
+          onOpenWallet={() => handleOpenWallet('deposit')}
+          onOpenAuth={() => handleRequireAuth()}
           currentTab={currentTab}
         />
 
@@ -81,19 +119,14 @@ const AppContent: React.FC = () => {
                 <MatchListModal
                   category={selectedCategory}
                   onBack={() => setSelectedCategory(null)}
-                  onOpenWallet={() => {
-                    setWalletDefaultTab('deposit');
-                    setIsWalletOpen(true);
-                  }}
+                  onOpenWallet={() => handleOpenWallet('deposit')}
+                  onRequireAuth={handleRequireAuth}
                 />
               ) : (
                 <div className="p-3 sm:p-4 space-y-4 bg-[#f8fafc]">
                   {/* Top How to Add Money Banner matching Screenshots 2 & 3 */}
                   <div
-                    onClick={() => {
-                      setWalletDefaultTab('deposit');
-                      setIsWalletOpen(true);
-                    }}
+                    onClick={() => handleOpenWallet('deposit')}
                     className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-50 via-sky-50 to-rose-50 border border-slate-200/80 p-4 text-slate-900 shadow-md cursor-pointer hover:shadow-lg transition-all active:scale-[0.99] group"
                   >
                     <div className="flex items-center justify-between">
@@ -184,26 +217,23 @@ const AppContent: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: SHOP (Diamond Top-up) */}
-          {currentTab === 'shop' && <ShopView />}
+          {/* TAB 2: MY MATCHES */}
+          {currentTab === 'mymatches' && <MyMatchesView onRequireAuth={handleRequireAuth} />}
 
-          {/* TAB 3: MY MATCHES */}
-          {currentTab === 'mymatches' && <MyMatchesView />}
-
-          {/* TAB 4: RESULTS */}
+          {/* TAB 3: RESULTS */}
           {currentTab === 'results' && <ResultsView />}
+
+          {/* TAB 4: NOTIFICATIONS */}
+          {currentTab === 'notifications' && (
+            <NotificationsView onRequireAuth={handleRequireAuth} />
+          )}
 
           {/* TAB 5: PROFILE */}
           {currentTab === 'profile' && (
             <ProfileView
-              onOpenWallet={() => {
-                setWalletDefaultTab('deposit');
-                setIsWalletOpen(true);
-              }}
-              onOpenWithdraw={() => {
-                setWalletDefaultTab('withdraw');
-                setIsWalletOpen(true);
-              }}
+              onOpenWallet={() => handleOpenWallet('deposit')}
+              onOpenWithdraw={() => handleOpenWallet('withdraw')}
+              onOpenAuth={() => handleRequireAuth()}
             />
           )}
         </main>
@@ -214,6 +244,7 @@ const AppContent: React.FC = () => {
         {/* Fixed Mobile Bottom Navigation Bar */}
         <BottomNav
           currentTab={currentTab}
+          unreadCount={unreadNotificationCount}
           onTabChange={(tab) => {
             setCurrentTab(tab);
             if (tab !== 'play') {
@@ -227,6 +258,15 @@ const AppContent: React.FC = () => {
           <WalletModal
             defaultTab={walletDefaultTab}
             onClose={() => setIsWalletOpen(false)}
+          />
+        )}
+
+        {/* Login / Registration Popup Modal */}
+        {isAuthModalOpen && (
+          <AuthModal
+            onClose={() => setIsAuthModalOpen(false)}
+            reason={authModalReason}
+            onSuccess={() => setIsAuthModalOpen(false)}
           />
         )}
       </div>

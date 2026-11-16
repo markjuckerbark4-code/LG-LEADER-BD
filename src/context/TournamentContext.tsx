@@ -8,6 +8,7 @@ import {
   TopPlayer,
   WebsiteSettings,
   MatchResultEntry,
+  AppNotification,
 } from '../types';
 import {
   INITIAL_CATEGORIES,
@@ -38,11 +39,15 @@ interface TournamentContextType {
   players: UserProfile[];
   registeredUsers: UserProfile[];
   transactions: Transaction[];
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
   diamondPackages: DiamondPackage[];
   topPlayers: TopPlayer[];
   settings: WebsiteSettings;
   selectedCategory: GameCategory | null;
   setSelectedCategory: (cat: GameCategory | null) => void;
+  markNotificationAsRead: (notifId: string) => void;
+  markAllNotificationsAsRead: () => void;
 
   // Authentication
   registerUser: (data: {
@@ -141,6 +146,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(INITIAL_PLAYERS);
   const [players, setPlayers] = useState<UserProfile[]>(INITIAL_PLAYERS);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [allNotifications, setAllNotifications] = useState<AppNotification[]>([]);
   const [settings, setSettings] = useState<WebsiteSettings>(INITIAL_SETTINGS);
   const [selectedCategory, setSelectedCategory] = useState<GameCategory | null>(null);
 
@@ -315,6 +321,73 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     );
     return () => unsub();
   }, []);
+
+  // 6. Real-time Notifications Listener
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, 'notifications'),
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => d.data() as AppNotification);
+        list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setAllNotifications(list);
+      },
+      (err) => {
+        console.warn('Real-time notifications error:', err);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  // Filter notifications belonging to current logged-in user
+  const notifications = user
+    ? allNotifications.filter(
+        (n) => n.userId === user.id || n.userId === user.freeFireUid || n.userId === 'ALL'
+      )
+    : [];
+
+  const unreadNotificationCount = notifications.filter((n) => !n.read).length;
+
+  const createNotification = async (notif: Omit<AppNotification, 'id' | 'read' | 'createdAt' | 'timestamp'>) => {
+    const now = Date.now();
+    const fullNotif: AppNotification = {
+      ...notif,
+      id: `notif-${now}-${Math.random().toString(36).slice(2, 7)}`,
+      read: false,
+      createdAt: new Date().toLocaleString(),
+      timestamp: now,
+    };
+
+    setAllNotifications((prev) => [fullNotif, ...prev]);
+    try {
+      await setDoc(doc(db, 'notifications', fullNotif.id), fullNotif);
+    } catch (err) {
+      console.warn('Error saving notification in Firestore:', err);
+    }
+  };
+
+  const markNotificationAsRead = async (notifId: string) => {
+    setAllNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, read: true } : n))
+    );
+    try {
+      await updateDoc(doc(db, 'notifications', notifId), { read: true });
+    } catch (err) {
+      console.warn('Error marking notification read:', err);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+
+    setAllNotifications((prev) =>
+      prev.map((n) => (unreadIds.includes(n.id) ? { ...n, read: true } : n))
+    );
+
+    unreadIds.forEach((id) => {
+      updateDoc(doc(db, 'notifications', id), { read: true }).catch(() => {});
+    });
+  };
 
   // Sync category match counts dynamically
   useEffect(() => {
@@ -600,13 +673,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // -------------------------------------------------------------
-  // USER ACTION: Submit Withdraw
-  // Rules:
-  // 1. Minimum withdraw: settings.minWithdraw (default 50 BDT)
-  // 2. Maximum withdraw per day: settings.maxWithdrawPerDay (default 1000 BDT)
-  // 3. Immediately deducted from customer's account balance
-  // 4. Sent to admin panel for verification
-  // 5. Unified balance (Winning and Main account are one and the same)
+  // USER ACTION: Submit Withdraw (Strictly ONLY from Winning Account)
   // -------------------------------------------------------------
   const submitWithdraw = (
     method: 'bKash' | 'Nagad' | 'Rocket',
@@ -623,11 +690,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: `সর্বনিম্ন উত্তোলন ৳${minWith} টাকা।` };
     }
 
-    const currentTotalBalance = (user.depositBalance || 0) + (user.winningBalance || 0);
-    if (currentTotalBalance < amount) {
+    const currentWinning = user.winningBalance || 0;
+    if (currentWinning < amount) {
       return {
         success: false,
-        message: `আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই! বর্তমান ব্যালেন্স ৳${currentTotalBalance}`,
+        message: `আপনার উইনিং একাউন্টে পর্যাপ্ত ব্যালেন্স নেই! শুধুমাত্র ম্যাচ জয়ের টাকা (উইনিং একাউন্ট: ৳${currentWinning}) উত্তোলন করা যাবে।`,
       };
     }
 
@@ -653,26 +720,19 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'সঠিক বিকাশ/নগদ নাম্বার দিন।' };
     }
 
-    // Immediately minus from customer's account balance (deducts from Game Account / winning balance first)
-    const currentDeposit = user.depositBalance || 0;
-    const currentWinning = user.winningBalance || 0;
-    let newWinning = currentWinning;
-    let newDeposit = currentDeposit;
-
-    if (newWinning >= amount) {
-      newWinning -= amount;
-    } else {
-      const rem = amount - newWinning;
-      newWinning = 0;
-      newDeposit = Math.max(0, newDeposit - rem);
-    }
+    // Deduct strictly from Winning Account ONLY (Main Account depositBalance stays untouched)
+    const newWinning = Math.max(0, currentWinning - amount);
 
     const updatedUser = {
       ...user,
-      depositBalance: newDeposit,
       winningBalance: newWinning,
     };
     setUser(updatedUser);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(updatedUser));
+    } catch {}
+    setPlayers((prev) => prev.map((p) => (p.id === user.id ? updatedUser : p)));
+    setRegisteredUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
 
     const tx: Transaction = {
       id: `tx-${Date.now()}`,
@@ -684,14 +744,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       phone: phone.trim(),
       status: 'pending',
       date: new Date().toLocaleString(),
-      note: `Requested cashout to ${method}: ${phone}`,
+      note: `Winning Account Cashout to ${method}: ${phone}`,
     };
 
     updateDoc(doc(db, 'users', user.id), {
-      depositBalance: newDeposit,
       winningBalance: newWinning,
     }).catch((err) =>
-      console.warn('Error updating balance on withdraw in Firestore:', err)
+      console.warn('Error updating winning balance on withdraw in Firestore:', err)
     );
     setDoc(doc(db, 'transactions', tx.id), tx).catch((err) =>
       console.warn('Error writing withdraw to Firestore:', err)
@@ -701,7 +760,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     return {
       success: true,
-      message: `৳${amount} উত্তোলন রিকোয়েস্ট জমা হয়েছে এবং আপনার ব্যালেন্স থেকে কর্তন করা হয়েছে! এডমিন দ্রুত টাকা পাঠিয়ে দেবে।`,
+      message: `উইনিং একাউন্ট থেকে ৳${amount} উত্তোলন রিকোয়েস্ট জমা হয়েছে! এডমিন দ্রুত টাকা পাঠিয়ে দেবে।`,
     };
   };
 
@@ -966,20 +1025,43 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const tx = transactions.find((t) => t.id === txId);
     if (!tx || tx.status !== 'pending') return;
 
+    const approvedNote = 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত (মেইন একাউন্টে যোগ হয়েছে)';
     try {
       await updateDoc(doc(db, 'transactions', txId), {
         status: 'approved',
-        note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত (মেইন একাউন্টে যোগ হয়েছে)',
+        note: approvedNote,
       });
 
-      const userTarget = registeredUsers.find((u) => u.id === tx.userId);
+      let userTarget = registeredUsers.find((u) => u.id === tx.userId);
+      if (!userTarget) {
+        const snap = await getDoc(doc(db, 'users', tx.userId)).catch(() => null);
+        if (snap && snap.exists()) {
+          userTarget = snap.data() as UserProfile;
+        }
+      }
+
       if (userTarget) {
-        // kew diposit dile oita main acount e taka add hobi
+        // Always add approved deposit to Main Account (depositBalance)
         const newDeposit = (userTarget.depositBalance || 0) + tx.amount;
         await updateDoc(doc(db, 'users', tx.userId), { depositBalance: newDeposit });
+
+        const updatedTarget = { ...userTarget, depositBalance: newDeposit };
+        setPlayers((prev) => prev.map((p) => (p.id === tx.userId ? updatedTarget : p)));
+        setRegisteredUsers((prev) => prev.map((u) => (u.id === tx.userId ? updatedTarget : u)));
+
         if (user && user.id === tx.userId) {
-          setUser((prev) => prev ? { ...prev, depositBalance: newDeposit } : null);
+          setUser(updatedTarget);
+          try {
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(updatedTarget));
+          } catch {}
         }
+
+        await createNotification({
+          userId: tx.userId,
+          type: 'deposit_approved',
+          title: '✅ ডিপোজিট অনুমোদিত হয়েছে!',
+          message: `আপনার ৳${tx.amount} (${tx.method || 'Payment'}) ডিপোজিট সফলভাবে অনুমোদন হয়ে মেইন একাউন্টে যোগ হয়েছে।`,
+        });
       }
     } catch (err) {
       console.warn('Error approving deposit in Firestore:', err);
@@ -987,17 +1069,26 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setTransactions((prev) =>
       prev.map((t) =>
-        t.id === txId ? { ...t, status: 'approved', note: 'এডমিন কর্তৃক ভেরিফাইড ও অনুমোদিত' } : t
+        t.id === txId ? { ...t, status: 'approved', note: approvedNote } : t
       )
     );
   };
 
   const rejectDeposit = async (txId: string, reason = 'ভুল TrxID বা অ্যাকাউন্টে টাকা ক্রেডিট হয়নি') => {
+    const tx = transactions.find((t) => t.id === txId);
     try {
       await updateDoc(doc(db, 'transactions', txId), {
         status: 'rejected',
         note: reason,
       });
+      if (tx) {
+        await createNotification({
+          userId: tx.userId,
+          type: 'deposit_rejected',
+          title: '❌ ডিপোজিট বাতিল হয়েছে',
+          message: `আপনার ৳${tx.amount} ডিপোজিট রিকোয়েস্ট বাতিল করা হয়েছে। কারণ: ${reason}`,
+        });
+      }
     } catch (err) {
       console.warn('Error rejecting deposit in Firestore:', err);
     }
@@ -1008,11 +1099,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const approveWithdraw = async (txId: string) => {
+    const tx = transactions.find((t) => t.id === txId);
     try {
       await updateDoc(doc(db, 'transactions', txId), {
         status: 'approved',
         note: 'টাকা বিকাশ/নগদ একাউন্টে সফলভাবে পাঠানো হয়েছে',
       });
+      if (tx) {
+        await createNotification({
+          userId: tx.userId,
+          type: 'withdraw_approved',
+          title: '💸 টাকা উত্তোলন সফল হয়েছে!',
+          message: `আপনার উইনিং একাউন্ট থেকে ৳${tx.amount} (${tx.method || ''} - ${tx.phone || ''}) সফলভাবে পাঠানো হয়েছে।`,
+        });
+      }
     } catch (err) {
       console.warn('Error approving withdraw in Firestore:', err);
     }
@@ -1039,21 +1139,39 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         note: reason,
       });
 
-      // Refund back to player's Game Account (winning balance)
-      const userTarget = registeredUsers.find((u) => u.id === tx.userId);
+      // Refund back to player's Winning Account (winningBalance)
+      let userTarget = registeredUsers.find((u) => u.id === tx.userId);
+      if (!userTarget) {
+        const snap = await getDoc(doc(db, 'users', tx.userId)).catch(() => null);
+        if (snap && snap.exists()) {
+          userTarget = snap.data() as UserProfile;
+        }
+      }
+
       if (userTarget) {
         const refundedWinning = (userTarget.winningBalance || 0) + tx.amount;
         await updateDoc(doc(db, 'users', tx.userId), { winningBalance: refundedWinning });
 
+        const updatedTarget = { ...userTarget, winningBalance: refundedWinning };
         if (user && tx.userId === user.id) {
-          setUser((prev) => (prev ? { ...prev, winningBalance: refundedWinning } : null));
+          setUser(updatedTarget);
+          try {
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(updatedTarget));
+          } catch {}
         }
         setPlayers((prev) =>
-          prev.map((p) => (p.id === tx.userId ? { ...p, winningBalance: refundedWinning } : p))
+          prev.map((p) => (p.id === tx.userId ? updatedTarget : p))
         );
         setRegisteredUsers((prev) =>
-          prev.map((u) => (u.id === tx.userId ? { ...u, winningBalance: refundedWinning } : u))
+          prev.map((u) => (u.id === tx.userId ? updatedTarget : u))
         );
+
+        await createNotification({
+          userId: tx.userId,
+          type: 'withdraw_rejected',
+          title: '⚠️ উত্তোলন বাতিল ও টাকা রিফান্ড',
+          message: `আপনার ৳${tx.amount} উত্তোলন রিকোয়েস্ট বাতিল করে উইনিং একাউন্টে ফেরত দেওয়া হয়েছে। কারণ: ${reason}`,
+        });
       }
     } catch (err) {
       console.warn('Error rejecting withdraw in Firestore:', err);
@@ -1065,7 +1183,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // -------------------------------------------------------------
-  // ADMIN MODULE 4: ROOM ID & PASSWORD (WITH TIMING)
+  // ADMIN MODULE 4: ROOM ID & PASSWORD (WITH TIMING & NOTIFICATIONS)
   // -------------------------------------------------------------
   const setRoomDetailsWithTiming = async (
     matchId: string,
@@ -1074,26 +1192,60 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     timing: 'now' | '10min' | '15min' | 'hidden',
     isVisible: boolean
   ) => {
+    const cleanRoomId = roomId.trim();
+    const cleanRoomPassword = roomPassword.trim();
+
     const update = {
-      roomId: roomId.trim(),
-      roomPassword: roomPassword.trim(),
+      roomId: cleanRoomId,
+      roomPassword: cleanRoomPassword,
       roomReleaseTiming: timing,
       isRoomVisibleToPlayers: isVisible,
-      status: isVisible && roomId ? ('ongoing' as const) : undefined,
+      status: isVisible && cleanRoomId ? ('ongoing' as const) : undefined,
     };
 
     const cleanUpdate: Record<string, any> = {
-      roomId: roomId.trim(),
-      roomPassword: roomPassword.trim(),
+      roomId: cleanRoomId,
+      roomPassword: cleanRoomPassword,
       roomReleaseTiming: timing,
       isRoomVisibleToPlayers: isVisible,
     };
-    if (isVisible && roomId) {
+    if (isVisible && cleanRoomId) {
       cleanUpdate.status = 'ongoing';
     }
 
     try {
       await updateDoc(doc(db, 'matches', matchId), cleanUpdate);
+
+      // Send real-time Notification to ALL joined players of this match when Room ID & Pass are published
+      if (isVisible && cleanRoomId) {
+        let targetMatch = matches.find((m) => m.id === matchId);
+        if (!targetMatch) {
+          const snap = await getDoc(doc(db, 'matches', matchId)).catch(() => null);
+          if (snap && snap.exists()) {
+            targetMatch = snap.data() as TournamentMatch;
+          }
+        }
+
+        if (targetMatch && targetMatch.joinedPlayers && targetMatch.joinedPlayers.length > 0) {
+          const notifiedUserIds = new Set<string>();
+          for (const playerEntry of targetMatch.joinedPlayers) {
+            const targetUserId = playerEntry.userId || playerEntry.uid;
+            if (!targetUserId || notifiedUserIds.has(targetUserId)) continue;
+            notifiedUserIds.add(targetUserId);
+
+            await createNotification({
+              userId: targetUserId,
+              type: 'room_details',
+              title: `🔑 রুম আইডি ও পাসওয়ার্ড প্রকাশ হয়েছে!`,
+              message: `${targetMatch.title} (#${targetMatch.matchNumber}) ম্যাচের কাস্টম রুম আইডি ও পাসওয়ার্ড দেওয়া হয়েছে। দ্রুত রুমে প্রবেশ করুন!`,
+              matchId: targetMatch.id,
+              matchTitle: targetMatch.title,
+              roomId: cleanRoomId,
+              roomPassword: cleanRoomPassword,
+            });
+          }
+        }
+      }
     } catch (err) {
       console.warn('Error setting room details in Firestore:', err);
     }
@@ -1104,7 +1256,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ? {
               ...m,
               ...update,
-              status: isVisible && roomId ? 'ongoing' : m.status,
+              status: isVisible && cleanRoomId ? 'ongoing' : m.status,
             }
           : m
       )
@@ -1112,7 +1264,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // -------------------------------------------------------------
-  // ADMIN MODULE 5: RESULT MANAGEMENT
+  // ADMIN MODULE 5: RESULT MANAGEMENT (Winnings go strictly to Winning Account)
   // -------------------------------------------------------------
   const publishResults = async (
     matchId: string,
@@ -1134,24 +1286,41 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       await updateDoc(doc(db, 'matches', matchId), matchUpdate);
 
-      results.forEach(async (entry) => {
+      for (const entry of results) {
         if (entry.prizeWon > 0) {
           const target = registeredUsers.find(
             (u) =>
+              u.id === entry.playerId ||
               u.freeFireUid === entry.uid ||
               u.username.toLowerCase() === entry.gamerName.toLowerCase()
           );
           if (target) {
-            // ar match e wining amount game acount e
+            // Winning money always goes strictly to Winning Account (winningBalance)
             const updatedWinning = (target.winningBalance || 0) + entry.prizeWon;
             const updatedTotalWon = (target.totalWonBDT || 0) + entry.prizeWon;
-            const updatedMatchesWon = entry.position === 1 ? (target.matchesWon || 0) + 1 : (target.matchesWon || 0);
+            const updatedMatchesWon =
+              entry.position === 1 ? (target.matchesWon || 0) + 1 : (target.matchesWon || 0);
 
             await updateDoc(doc(db, 'users', target.id), {
               winningBalance: updatedWinning,
               totalWonBDT: updatedTotalWon,
               matchesWon: updatedMatchesWon,
             });
+
+            const updatedTarget = {
+              ...target,
+              winningBalance: updatedWinning,
+              totalWonBDT: updatedTotalWon,
+              matchesWon: updatedMatchesWon,
+            };
+            setPlayers((prev) => prev.map((p) => (p.id === target.id ? updatedTarget : p)));
+            setRegisteredUsers((prev) => prev.map((u) => (u.id === target.id ? updatedTarget : u)));
+            if (user && user.id === target.id) {
+              setUser(updatedTarget);
+              try {
+                localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(updatedTarget));
+              } catch {}
+            }
 
             const tx: Transaction = {
               id: `tx-${Date.now()}-${entry.uid}`,
@@ -1161,12 +1330,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               amount: entry.prizeWon,
               status: 'approved',
               date: new Date().toLocaleString(),
-              note: `Tournament Prize: Rank #${entry.position}, ${entry.kills} Kills (${entry.points} Pts) - ক্রেডিট করা হয়েছে গেম একাউন্টে`,
+              note: `Tournament Prize: Rank #${entry.position}, ${entry.kills} Kills (${entry.points} Pts) - ক্রেডিট করা হয়েছে উইনিং একাউন্টে`,
             };
             await setDoc(doc(db, 'transactions', tx.id), tx);
+
+            await createNotification({
+              userId: target.id,
+              type: 'match_prize',
+              title: '🏆 ম্যাচ উইনিং প্রাইজ যুক্ত হয়েছে!',
+              message: `অভিনন্দন! #${entry.position} স্থান (${entry.kills} Kills) অর্জন করে ৳${entry.prizeWon} আপনার উইনিং একাউন্টে যোগ হয়েছে।`,
+              matchId,
+            });
           }
         }
-      });
+      }
     } catch (err) {
       console.warn('Error publishing results in Firestore:', err);
     }
@@ -1203,11 +1380,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         players,
         registeredUsers,
         transactions,
+        notifications,
+        unreadNotificationCount,
         diamondPackages,
         topPlayers,
         settings,
         selectedCategory,
         setSelectedCategory,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
         registerUser,
         loginUser,
         logoutUser,

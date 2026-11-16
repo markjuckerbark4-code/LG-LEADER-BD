@@ -459,6 +459,11 @@ export const INITIAL_SETTINGS = {
   maxDeposit: 25000,
   minWithdraw: 50,
   maxWithdrawPerDay: 1000,
+  isWebLockEnabled: true,
+  webLockPin: '200628',
+  webLockTitle: 'LG LEADER BD - সিকিউরিটি লক',
+  webLockSubtitle: 'ওয়েবসাইটটিতে প্রবেশ করতে সিকিউরিটি পিন দিন',
+  adminPassword: 'mahin44@@',
 };
 
 export const INITIAL_PLAYERS: UserProfile[] = [];
