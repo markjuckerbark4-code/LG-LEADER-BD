@@ -10,6 +10,10 @@ const CURRENT_APK_PATH = path.join(UPLOADS_DIR, 'current.apk');
 const TEMP_APK_PATH = path.join(UPLOADS_DIR, 'temp-upload.apk');
 const META_PATH = path.join(UPLOADS_DIR, 'apk-meta.json');
 
+const PUBLIC_DOWNLOADS_DIR = path.resolve(ROOT_DIR, 'public', 'downloads');
+const PUBLIC_APK_PATH = path.join(PUBLIC_DOWNLOADS_DIR, 'app.apk');
+const PUBLIC_META_PATH = path.join(PUBLIC_DOWNLOADS_DIR, 'apk-meta.json');
+
 interface ApkMeta {
   fileName: string;
   fileSize: number;
@@ -22,6 +26,32 @@ function ensureUploadsDir() {
   if (!fs.existsSync(UPLOADS_DIR)) {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   }
+  if (!fs.existsSync(PUBLIC_DOWNLOADS_DIR)) {
+    fs.mkdirSync(PUBLIC_DOWNLOADS_DIR, { recursive: true });
+  }
+}
+
+function syncApkToPublicDownloads(meta: ApkMeta) {
+  try {
+    ensureUploadsDir();
+    if (fs.existsSync(CURRENT_APK_PATH)) {
+      fs.copyFileSync(CURRENT_APK_PATH, PUBLIC_APK_PATH);
+      fs.writeFileSync(
+        PUBLIC_META_PATH,
+        JSON.stringify({ ...meta, downloadUrl: '/downloads/app.apk' }, null, 2),
+        'utf-8'
+      );
+    }
+  } catch (err) {
+    console.warn('Warning: could not sync APK to public/downloads:', err);
+  }
+}
+
+function removePublicDownloadsApk() {
+  try {
+    if (fs.existsSync(PUBLIC_APK_PATH)) fs.unlinkSync(PUBLIC_APK_PATH);
+    if (fs.existsSync(PUBLIC_META_PATH)) fs.unlinkSync(PUBLIC_META_PATH);
+  } catch {}
 }
 
 function safeDecode(value: string | string[] | undefined, fallback: string): string {
@@ -65,6 +95,7 @@ async function startServer() {
 
   // 1. Get current APK info
   app.get('/api/apk-info', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     const meta = readApkMeta();
     if (!meta) {
       res.json({ exists: false });
@@ -203,6 +234,7 @@ async function startServer() {
         downloadUrl: '/api/download-apk',
       };
       fs.writeFileSync(META_PATH, JSON.stringify(meta, null, 2), 'utf-8');
+      syncApkToPublicDownloads(meta);
 
       res.json({ success: true, ...meta });
     } catch (err) {
@@ -282,6 +314,7 @@ async function startServer() {
           downloadUrl: '/api/download-apk',
         };
         fs.writeFileSync(META_PATH, JSON.stringify(meta, null, 2), 'utf-8');
+        syncApkToPublicDownloads(meta);
 
         res.json({ success: true, ...meta });
       } catch (err) {
@@ -304,6 +337,7 @@ async function startServer() {
       return;
     }
 
+    res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
     res.setHeader(
       'Content-Disposition',
@@ -319,6 +353,7 @@ async function startServer() {
     try {
       if (fs.existsSync(CURRENT_APK_PATH)) fs.unlinkSync(CURRENT_APK_PATH);
       if (fs.existsSync(META_PATH)) fs.unlinkSync(META_PATH);
+      removePublicDownloadsApk();
       res.json({ success: true });
     } catch (err) {
       console.error('Error deleting APK:', err);
@@ -326,11 +361,60 @@ async function startServer() {
     }
   });
 
+  // 5. Serve static public/downloads directly (avoids Vite SPA HTML fallback)
+  app.use(
+    '/downloads',
+    express.static(PUBLIC_DOWNLOADS_DIR, {
+      fallthrough: false,
+      setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'no-store');
+      },
+    })
+  );
+  app.use(
+    '/downloads',
+    (
+      _err: unknown,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction
+    ) => {
+      res.status(404).json({ exists: false });
+    }
+  );
+
   // Mount Vite middleware in development or static dist in production
   if (process.env.NODE_ENV !== 'production') {
+    process.env.DISABLE_HMR = 'true';
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        ws: false,
+        watch: null,
+      },
       appType: 'spa',
+    });
+    app.get('/@vite/client', async (_req, res, next) => {
+      try {
+        const result = await vite.transformRequest('/@vite/client');
+        if (!result) {
+          next();
+          return;
+        }
+        const code = result.code
+          .replace(
+            /transport\.connect\(createHMRHandler\(handleMessage\)\);?/g,
+            '/* HMR WebSocket disabled */'
+          )
+          .replace(
+            /else throw new SendBeforeConnectError\("send was called before connect"\);?/g,
+            'else return;'
+          );
+        res.type('application/javascript').send(code);
+      } catch {
+        next();
+      }
     });
     app.use(vite.middlewares);
   } else {

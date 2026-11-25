@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useTournament } from '../../context/TournamentContext';
 import { TournamentMatch, MatchResultEntry, UserProfile } from '../../types';
 import {
-  uploadApkToFirestore,
-  getFirestoreApkMeta,
-  downloadApkFromFirestore,
-  deleteApkFromFirestore,
+  uploadApkSmart,
+  getActiveApkInfo,
+  downloadApkSmart,
+  deleteApkSmart,
   formatApkBytes,
-  FirestoreApkMeta,
+  ActiveApkInfo,
 } from '../../utils/apkStorage';
 import {
   Trophy,
@@ -201,15 +201,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   }, [settings]);
 
   // App (APK) Upload & Management State
-  const [serverApkInfo, setServerApkInfo] = useState<{
-    exists: boolean;
-    fileName?: string;
-    fileSize?: number;
-    version?: string;
-    uploadedAt?: string;
-    downloadUrl?: string;
-    firestoreMeta?: FirestoreApkMeta | null;
-  } | null>(null);
+  const [serverApkInfo, setServerApkInfo] = useState<ActiveApkInfo | null>(null);
   const [apkUploading, setApkUploading] = useState(false);
   const [apkUploadProgress, setApkUploadProgress] = useState(0);
   const [apkTestingDownload, setApkTestingDownload] = useState(false);
@@ -217,6 +209,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const [apkExternalUrlInput, setApkExternalUrlInput] = useState(
     settings?.appApkUrl &&
       settings.appApkUrl !== '/api/download-apk' &&
+      settings.appApkUrl !== '/downloads/app.apk' &&
       !settings.appApkUrl.startsWith('firestore://')
       ? settings.appApkUrl
       : ''
@@ -227,28 +220,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
 
   const fetchServerApkInfo = async () => {
     try {
-      const fsMeta = await getFirestoreApkMeta();
-      if (fsMeta) {
-        setServerApkInfo({
-          exists: true,
-          fileName: fsMeta.fileName,
-          fileSize: fsMeta.fileSize,
-          version: fsMeta.version,
-          uploadedAt: fsMeta.uploadedAt,
-          downloadUrl: `firestore://${fsMeta.batchId}`,
-          firestoreMeta: fsMeta,
-        });
-        return;
-      }
-      const res = await fetch('/api/apk-info').catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json().catch(() => ({ exists: false }));
-        setServerApkInfo(data);
-        return;
-      }
-      setServerApkInfo({ exists: false });
+      const info = await getActiveApkInfo();
+      setServerApkInfo(info);
     } catch (err) {
       console.error('Failed to load APK info:', err);
+      setServerApkInfo({ exists: false });
     }
   };
 
@@ -261,6 +237,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     if (
       settings?.appApkUrl &&
       settings.appApkUrl !== '/api/download-apk' &&
+      settings.appApkUrl !== '/downloads/app.apk' &&
       !settings.appApkUrl.startsWith('firestore://')
     ) {
       setApkExternalUrlInput(settings.appApkUrl);
@@ -271,7 +248,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.apk')) {
+    const lowerName = file.name.toLowerCase();
+    const isApkFile =
+      lowerName.endsWith('.apk') ||
+      lowerName.includes('.apk') ||
+      file.type === 'application/vnd.android.package-archive';
+
+    if (!isApkFile) {
       setApkFeedback({
         type: 'error',
         text: 'অনুগ্রহ করে সঠিক .apk ফাইল সিলেক্ট করুন (যেমন: LG_LEADER_BD.apk)।',
@@ -285,36 +268,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     setApkUploadProgress(1);
 
     try {
-      const meta = await uploadApkToFirestore(
+      const uploadedInfo = await uploadApkSmart(
         file,
         apkVersionInput.trim() || 'v1.0.0',
         (percent) => setApkUploadProgress(percent)
       );
 
-      setServerApkInfo({
-        exists: true,
-        fileName: meta.fileName,
-        fileSize: meta.fileSize,
-        version: meta.version,
-        uploadedAt: meta.uploadedAt,
-        downloadUrl: `firestore://${meta.batchId}`,
-        firestoreMeta: meta,
-      });
+      setServerApkInfo(uploadedInfo);
 
       updateSettings({
-        appApkUrl: `firestore://${meta.batchId}`,
-        appApkFileName: meta.fileName,
-        appFileSize: meta.fileSizeFormatted,
-        appVersion: meta.version,
-        appUpdatedAt: meta.uploadedAt,
+        appApkUrl: uploadedInfo.downloadUrl || '/api/download-apk',
+        appApkFileName: uploadedInfo.fileName || 'LG_LEADER_BD.apk',
+        appFileSize: uploadedInfo.fileSizeFormatted || formatApkBytes(uploadedInfo.fileSize),
+        appVersion: uploadedInfo.version || apkVersionInput.trim() || 'v1.0.0',
+        appUpdatedAt: uploadedInfo.uploadedAt || new Date().toLocaleString(),
         appUploadType: 'uploaded',
-        appApkBatchId: meta.batchId,
-        appApkChunkCount: meta.chunkCount,
+        appApkBatchId: uploadedInfo.firestoreMeta?.batchId || '',
+        appApkChunkCount: uploadedInfo.firestoreMeta?.chunkCount || 0,
       });
 
       setApkFeedback({
         type: 'success',
-        text: `সফলভাবে APK ক্লাউড ডাটাবেসে আপলোড হয়েছে! (${meta.fileName} • ${meta.fileSizeFormatted})। এখন যেকোনো ডিভাইস থেকে ক্লায়েন্টরা "অ্যাপ ডাউনলোড করুন" বাটনে চাপ দিলেই এটি ডাউনলোড হবে।`,
+        text: `সফলভাবে APK আপলোড হয়েছে! (${uploadedInfo.fileName} • ${uploadedInfo.fileSizeFormatted || formatFileSize(uploadedInfo.fileSize)})। এখন যেকোনো ইউজার "অ্যাপ ডাউনলোড করুন" বাটনে ক্লিক করলেই এই APK ডাউনলোড করতে পারবে।`,
       });
     } catch (err: any) {
       setApkFeedback({
@@ -330,18 +305,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const handleTestDownloadApk = async () => {
     if (!serverApkInfo?.exists) return;
     setApkFeedback(null);
+    setApkTestingDownload(true);
     try {
-      if (serverApkInfo.firestoreMeta) {
-        setApkTestingDownload(true);
-        await downloadApkFromFirestore(serverApkInfo.firestoreMeta);
-        return;
-      }
-      const link = document.createElement('a');
-      link.href = `/api/download-apk?t=${Date.now()}`;
-      link.setAttribute('download', serverApkInfo.fileName || 'LG_LEADER_BD.apk');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await downloadApkSmart(serverApkInfo);
     } catch (err: any) {
       setApkFeedback({
         type: 'error',
@@ -355,7 +321,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
   const handleDeleteServerApk = async () => {
     setApkFeedback(null);
     try {
-      await deleteApkFromFirestore(serverApkInfo?.firestoreMeta);
+      await deleteApkSmart(serverApkInfo);
       setServerApkInfo({ exists: false });
       updateSettings({
         appApkUrl: apkExternalUrlInput.trim() || '',
@@ -1681,7 +1647,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 {serverApkInfo?.exists ? (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    APK লাইভ আছে (Cloud Hosted)
+                    {serverApkInfo.source === 'firestore'
+                      ? 'APK লাইভ আছে (Cloud Hosted)'
+                      : 'APK লাইভ আছে (Server Hosted)'}
                   </span>
                 ) : settingsForm.appApkUrl ? (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/15 border border-sky-500/40 text-sky-300 text-xs font-bold">
@@ -1741,7 +1709,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                 <div>
                   <h5 className="text-sm font-black text-white">নতুন Android APK ফাইল আপলোড করুন</h5>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    সর্বোচ্চ সাইজ ১২০ MB (.apk ফাইল)। আপলোড করলে ক্লাউড ডাটাবেসে সেভ হবে এবং সব ইউজারের জন্য লাইভ হয়ে যাবে।
+                    সর্বোচ্চ সাইজ ২৫০ MB (.apk ফাইল)। আপলোড করলে সার্ভারে সেভ হবে এবং সব ইউজার "অ্যাপ ডাউনলোড করুন" বাটনে ক্লিক করে ডাউনলোড করতে পারবে।
                   </p>
                 </div>
 
@@ -1777,7 +1745,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
                       <span>APK ফাইল সিলেক্ট ও আপলোড করুন (.apk)</span>
                       <input
                         type="file"
-                        accept=".apk,application/vnd.android.package-archive"
+                        accept=".apk,application/vnd.android.package-archive,application/octet-stream,*/*"
                         onChange={handleApkFileUpload}
                         className="hidden"
                       />

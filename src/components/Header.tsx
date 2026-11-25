@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTournament } from '../context/TournamentContext';
 import { Bell, Wallet, Wifi, BatteryCharging, Signal, User, Smartphone } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   onOpenWallet: () => void;
@@ -64,8 +65,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onOpenAuth, onBack
           </div>
         </div>
 
-        {/* Right side actions: App landing shortcut + User Wallet Balance or Login Button */}
+        {/* Right side actions: App landing shortcut + PWA install + User Wallet Balance or Login Button */}
         <div className="flex items-center gap-1.5">
+          <PWAInstallButton variant="header" />
           {onBackToLanding && (
             <button
               onClick={onBackToLanding}

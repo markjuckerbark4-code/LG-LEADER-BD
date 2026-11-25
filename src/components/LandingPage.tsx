@@ -24,32 +24,25 @@ import {
 import { useTournament } from '../context/TournamentContext';
 import appLogo from '../assets/images/lg_leader_logo_1795588158182.jpg';
 import {
-  getFirestoreApkMeta,
-  downloadApkFromFirestore,
+  getActiveApkInfo,
+  downloadApkSmart,
   formatApkBytes,
-  FirestoreApkMeta,
+  ActiveApkInfo,
 } from '../utils/apkStorage';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface LandingPageProps {
   onVisitWebsite: () => void;
 }
 
-interface ServerApkInfo {
-  exists: boolean;
-  fileName?: string;
-  fileSize?: number;
-  version?: string;
-  uploadedAt?: string;
-  downloadUrl?: string;
-}
-
 export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
   const { settings } = useTournament();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [serverApkInfo, setServerApkInfo] = useState<ServerApkInfo | null>(null);
-  const [firestoreApkMeta, setFirestoreApkMeta] = useState<FirestoreApkMeta | null>(null);
+  const [activeApkInfo, setActiveApkInfo] = useState<ActiveApkInfo | null>(null);
   const [downloadingApk, setDownloadingApk] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const { isInstallable, install: installPwa } = usePWAInstall();
   const [downloadNotice, setDownloadNotice] = useState<{
     type: 'success' | 'info';
     message: string;
@@ -58,21 +51,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
   useEffect(() => {
     let active = true;
 
-    getFirestoreApkMeta()
-      .then((meta) => {
-        if (active) setFirestoreApkMeta(meta);
+    getActiveApkInfo()
+      .then((info) => {
+        if (active) setActiveApkInfo(info);
       })
       .catch(() => {
-        if (active) setFirestoreApkMeta(null);
-      });
-
-    fetch('/api/apk-info')
-      .then((res) => (res.ok ? res.json() : { exists: false }))
-      .then((data: ServerApkInfo) => {
-        if (active) setServerApkInfo(data);
-      })
-      .catch(() => {
-        if (active) setServerApkInfo({ exists: false });
+        if (active) setActiveApkInfo({ exists: false });
       });
 
     return () => {
@@ -86,37 +70,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
     if (downloadingApk) return;
     setDownloadNotice(null);
 
-    // Priority 1: Express server-hosted APK if present & matching current upload
-    if (
-      serverApkInfo?.exists &&
-      (!firestoreApkMeta || serverApkInfo.fileName === firestoreApkMeta.fileName)
-    ) {
-      const fileName = serverApkInfo.fileName || settings.appApkFileName || 'LG_LEADER_BD.apk';
-      const link = document.createElement('a');
-      link.href = `/api/download-apk?t=${Date.now()}`;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setDownloadNotice({
-        type: 'success',
-        message: `ডাউনলোড শুরু হয়েছে! (${fileName}${serverApkInfo.fileSize ? ` • ${formatFileSize(serverApkInfo.fileSize)}` : ''})। ডাউনলোড শেষ হলে APK ফাইলটি ইনস্টল করুন।`,
-      });
-      return;
-    }
-
-    // Priority 2: Firestore cloud-hosted APK (works on both dev & static shared deployments)
-    if (firestoreApkMeta) {
-      setDownloadingApk(true);
-      setDownloadProgress(1);
+    // Priority 1: Active uploaded APK (Express Server, Bundled Static, or Firestore)
+    if (activeApkInfo?.exists) {
+      const isChunked = activeApkInfo.source === 'firestore';
+      if (isChunked) {
+        setDownloadingApk(true);
+        setDownloadProgress(1);
+      }
       try {
-        await downloadApkFromFirestore(firestoreApkMeta, (percent) =>
-          setDownloadProgress(percent)
-        );
+        await downloadApkSmart(activeApkInfo, (percent) => setDownloadProgress(percent));
+        const fileName = activeApkInfo.fileName || settings.appApkFileName || 'LG_LEADER_BD.apk';
+        const sizeLabel =
+          activeApkInfo.fileSizeFormatted ||
+          (activeApkInfo.fileSize ? ` • ${formatFileSize(activeApkInfo.fileSize)}` : '');
         setDownloadNotice({
           type: 'success',
-          message: `ডাউনলোড সম্পন্ন হয়েছে! (${firestoreApkMeta.fileName} • ${firestoreApkMeta.fileSizeFormatted})। আপনার ফোনের Downloads ফোল্ডার থেকে APK ফাইলটি ইনস্টল করুন।`,
+          message: `ডাউনলোড শুরু হয়েছে! (${fileName}${sizeLabel ? ` • ${sizeLabel.replace(/^ • /, '')}` : ''})। আপনার ফোনের Downloads ফোল্ডার থেকে APK ফাইলটি ইনস্টল করুন।`,
         });
       } catch (err: any) {
         setDownloadNotice({
@@ -129,11 +98,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
       return;
     }
 
-    // Priority 3: External direct APK link set by admin
+    // Priority 2: External direct APK link set by admin
     if (
       settings.appApkUrl &&
       settings.appApkUrl.trim() &&
       settings.appApkUrl !== '/api/download-apk' &&
+      settings.appApkUrl !== '/downloads/app.apk' &&
       !settings.appApkUrl.startsWith('firestore://')
     ) {
       const targetUrl = settings.appApkUrl.trim();
@@ -154,11 +124,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
       return;
     }
 
+    // Priority 3: Install as standalone WebApp (PWA) pointing directly to /play
+    if (isInstallable) {
+      const accepted = await installPwa();
+      if (accepted) {
+        setDownloadNotice({
+          type: 'success',
+          message: 'LG LEADER BD অ্যাপ আপনার ফোনের হোম স্ক্রিনে ইনস্টল হয়ে গেছে!',
+        });
+        return;
+      }
+    }
+
     // Fallback when no APK is uploaded yet
     setDownloadNotice({
       type: 'info',
       message:
-        'অফিশিয়াল APK ফাইলটি এখনো আপডেট/আপলোড করা হয়নি। আপনি চাইলে নিচের "ওয়েবসাইট ভিজিট করুন" বাটনে ক্লিক করে সরাসরি ওয়েবসাইটে খেলতে পারেন!',
+        'অফিশিয়াল APK ফাইলটি এখনো আপলোড করা হয়নি। আপনি চাইলে ব্রাউজার মেনু থেকে "Install app / Add to Home screen" দিয়ে অ্যাপ হিসেবে ব্যবহার করতে পারেন অথবা নিচের "ওয়েবসাইট ভিজিট করুন" বাটনে ক্লিক করুন!',
     });
   };
 
@@ -188,11 +170,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
     },
   ];
 
-  const versionDisplay = firestoreApkMeta?.version || serverApkInfo?.version || settings.appVersion;
-  const sizeDisplay = firestoreApkMeta?.fileSizeFormatted
-    ? firestoreApkMeta.fileSizeFormatted
-    : serverApkInfo?.fileSize
-    ? formatFileSize(serverApkInfo.fileSize)
+  const versionDisplay = activeApkInfo?.version || settings.appVersion;
+  const sizeDisplay = activeApkInfo?.fileSizeFormatted
+    ? activeApkInfo.fileSizeFormatted
+    : activeApkInfo?.fileSize
+    ? formatFileSize(activeApkInfo.fileSize)
     : settings.appFileSize || '';
 
   return (
@@ -301,6 +283,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
               <span>ওয়েবসাইট ভিজিট করুন</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            <PWAInstallButton variant="landing" />
           </div>
 
           {/* Download Feedback Message */}

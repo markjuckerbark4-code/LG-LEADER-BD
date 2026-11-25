@@ -1358,12 +1358,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // -------------------------------------------------------------
   const updateSettings = async (newSettings: Partial<WebsiteSettings>) => {
     const updated = { ...settings, ...newSettings };
+    setSettings(updated);
     try {
-      await setDoc(doc(db, 'settings', 'global'), updated);
+      await Promise.race([
+        setDoc(doc(db, 'settings', 'global'), updated),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Settings sync timeout')), 4000)),
+      ]);
     } catch (err) {
       console.warn('Error updating settings in Firestore:', err);
     }
-    setSettings(updated);
   };
 
   const resetAllData = () => {
