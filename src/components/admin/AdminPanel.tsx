@@ -238,7 +238,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
     }
   }, [settings?.appVersion, settings?.appApkUrl]);
 
-  const handleApkFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleApkFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -251,66 +251,100 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
       return;
     }
 
+    if (file.size > 250 * 1024 * 1024) {
+      setApkFeedback({
+        type: 'error',
+        text: 'ফাইলের সাইজ সর্বোচ্চ 250MB এর মধ্যে হতে হবে।',
+      });
+      e.target.value = '';
+      return;
+    }
+
     setApkFeedback(null);
     setApkUploading(true);
-    setApkUploadProgress(0);
+    setApkUploadProgress(1);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload-apk', true);
-    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-    xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
-    xhr.setRequestHeader('X-App-Version', encodeURIComponent(apkVersionInput.trim() || 'v1.0.0'));
+    try {
+      // Step 1: Initialize chunked upload session
+      const initRes = await fetch('/api/upload-apk-init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          version: apkVersionInput.trim() || 'v1.0.0',
+          totalSize: file.size,
+        }),
+      });
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+      const initData = await initRes.json().catch(() => null);
+      if (!initRes.ok || !initData?.success || !initData?.uploadId) {
+        throw new Error(initData?.error || `আপলোড শুরু করতে ব্যর্থ (HTTP ${initRes.status})`);
+      }
+
+      const uploadId: string = initData.uploadId;
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB per chunk (well below 32MB proxy limit)
+      const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+
+      // Step 2: Upload chunks sequentially with real-time progress
+      for (let idx = 0; idx < totalChunks; idx++) {
+        const start = idx * CHUNK_SIZE;
+        const end = Math.min(file.size, start + CHUNK_SIZE);
+        const chunkBlob = file.slice(start, end);
+
+        const chunkRes = await fetch('/api/upload-apk-chunk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Upload-Id': uploadId,
+            'X-Chunk-Index': String(idx),
+          },
+          body: chunkBlob,
+        });
+
+        const chunkData = await chunkRes.json().catch(() => null);
+        if (!chunkRes.ok || !chunkData?.success) {
+          throw new Error(chunkData?.error || `পার্ট ${idx + 1}/${totalChunks} আপলোড ব্যর্থ (HTTP ${chunkRes.status})`);
+        }
+
+        const percent = Math.min(96, Math.round(((idx + 1) / totalChunks) * 95));
         setApkUploadProgress(percent);
       }
-    };
 
-    xhr.onload = () => {
-      setApkUploading(false);
-      e.target.value = '';
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (data.success) {
-            setApkUploadProgress(100);
-            setServerApkInfo({ exists: true, ...data });
-            updateSettings({
-              appApkUrl: '/api/download-apk',
-              appApkFileName: data.fileName,
-              appFileSize: formatFileSize(data.fileSize),
-              appVersion: data.version,
-              appUpdatedAt: data.uploadedAt,
-              appUploadType: 'uploaded',
-            });
-            setApkFeedback({
-              type: 'success',
-              text: `সফলভাবে APK আপলোড হয়েছে! (${data.fileName} • ${formatFileSize(data.fileSize)})। এখন ক্লায়েন্টরা "অ্যাপ ডাউনলোড করুন" বাটনে চাপ দিলেই এটি ডাউনলোড হবে।`,
-            });
-            return;
-          }
-        } catch {
-          // fall through to error
-        }
+      // Step 3: Finalize upload
+      const completeRes = await fetch('/api/upload-apk-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadId }),
+      });
+
+      const data = await completeRes.json().catch(() => null);
+      if (!completeRes.ok || !data?.success) {
+        throw new Error(data?.error || `APK সেভ করতে ব্যর্থ (HTTP ${completeRes.status})`);
       }
+
+      setApkUploadProgress(100);
+      setServerApkInfo({ exists: true, ...data });
+      updateSettings({
+        appApkUrl: '/api/download-apk',
+        appApkFileName: data.fileName,
+        appFileSize: formatFileSize(data.fileSize),
+        appVersion: data.version,
+        appUpdatedAt: data.uploadedAt,
+        appUploadType: 'uploaded',
+      });
+      setApkFeedback({
+        type: 'success',
+        text: `সফলভাবে APK আপলোড হয়েছে! (${data.fileName} • ${formatFileSize(data.fileSize)})। এখন ক্লায়েন্টরা "অ্যাপ ডাউনলোড করুন" বাটনে চাপ দিলেই এটি ডাউনলোড হবে।`,
+      });
+    } catch (err: any) {
       setApkFeedback({
         type: 'error',
-        text: 'APK আপলোড করতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
+        text: err?.message || 'APK আপলোড করতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
       });
-    };
-
-    xhr.onerror = () => {
+    } finally {
       setApkUploading(false);
       e.target.value = '';
-      setApkFeedback({
-        type: 'error',
-        text: 'নেটওয়ার্ক ত্রুটির কারণে APK আপলোড করা যায়নি।',
-      });
-    };
-
-    xhr.send(file);
+    }
   };
 
   const handleDeleteServerApk = async () => {
