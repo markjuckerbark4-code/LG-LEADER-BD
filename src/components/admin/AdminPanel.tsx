@@ -33,6 +33,10 @@ import {
   Lock,
   LogOut,
   Sliders,
+  Smartphone,
+  Upload,
+  Download,
+  Globe,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -45,6 +49,7 @@ type AdminTab =
   | 'payments'
   | 'room'
   | 'results'
+  | 'app'
   | 'settings';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
@@ -186,6 +191,172 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
       setSettingsForm(settings);
     }
   }, [settings]);
+
+  // App (APK) Upload & Management State
+  const [serverApkInfo, setServerApkInfo] = useState<{
+    exists: boolean;
+    fileName?: string;
+    fileSize?: number;
+    version?: string;
+    uploadedAt?: string;
+    downloadUrl?: string;
+  } | null>(null);
+  const [apkUploading, setApkUploading] = useState(false);
+  const [apkUploadProgress, setApkUploadProgress] = useState(0);
+  const [apkVersionInput, setApkVersionInput] = useState(settings?.appVersion || 'v1.0.0');
+  const [apkExternalUrlInput, setApkExternalUrlInput] = useState(
+    settings?.appApkUrl && settings.appApkUrl !== '/api/download-apk' ? settings.appApkUrl : ''
+  );
+  const [apkFeedback, setApkFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes || bytes <= 0) return '0 KB';
+    const mb = bytes / (1024 * 1024);
+    return mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.round(bytes / 1024)} KB`;
+  };
+
+  const fetchServerApkInfo = async () => {
+    try {
+      const res = await fetch('/api/apk-info');
+      if (res.ok) {
+        const data = await res.json();
+        setServerApkInfo(data);
+      }
+    } catch (err) {
+      console.error('Failed to load APK info:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchServerApkInfo();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (settings?.appVersion) setApkVersionInput(settings.appVersion);
+    if (settings?.appApkUrl && settings.appApkUrl !== '/api/download-apk') {
+      setApkExternalUrlInput(settings.appApkUrl);
+    }
+  }, [settings?.appVersion, settings?.appApkUrl]);
+
+  const handleApkFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.apk')) {
+      setApkFeedback({
+        type: 'error',
+        text: 'অনুগ্রহ করে সঠিক .apk ফাইল সিলেক্ট করুন (যেমন: LG_LEADER_BD.apk)।',
+      });
+      e.target.value = '';
+      return;
+    }
+
+    setApkFeedback(null);
+    setApkUploading(true);
+    setApkUploadProgress(0);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload-apk', true);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+    xhr.setRequestHeader('X-App-Version', encodeURIComponent(apkVersionInput.trim() || 'v1.0.0'));
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+        setApkUploadProgress(percent);
+      }
+    };
+
+    xhr.onload = () => {
+      setApkUploading(false);
+      e.target.value = '';
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data.success) {
+            setApkUploadProgress(100);
+            setServerApkInfo({ exists: true, ...data });
+            updateSettings({
+              appApkUrl: '/api/download-apk',
+              appApkFileName: data.fileName,
+              appFileSize: formatFileSize(data.fileSize),
+              appVersion: data.version,
+              appUpdatedAt: data.uploadedAt,
+              appUploadType: 'uploaded',
+            });
+            setApkFeedback({
+              type: 'success',
+              text: `সফলভাবে APK আপলোড হয়েছে! (${data.fileName} • ${formatFileSize(data.fileSize)})। এখন ক্লায়েন্টরা "অ্যাপ ডাউনলোড করুন" বাটনে চাপ দিলেই এটি ডাউনলোড হবে।`,
+            });
+            return;
+          }
+        } catch {
+          // fall through to error
+        }
+      }
+      setApkFeedback({
+        type: 'error',
+        text: 'APK আপলোড করতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
+      });
+    };
+
+    xhr.onerror = () => {
+      setApkUploading(false);
+      e.target.value = '';
+      setApkFeedback({
+        type: 'error',
+        text: 'নেটওয়ার্ক ত্রুটির কারণে APK আপলোড করা যায়নি।',
+      });
+    };
+
+    xhr.send(file);
+  };
+
+  const handleDeleteServerApk = async () => {
+    setApkFeedback(null);
+    try {
+      const res = await fetch('/api/delete-apk', { method: 'DELETE' });
+      if (res.ok) {
+        setServerApkInfo({ exists: false });
+        updateSettings({
+          appApkUrl: apkExternalUrlInput.trim() || '',
+          appApkFileName: 'LG_LEADER_BD.apk',
+          appFileSize: '',
+          appUpdatedAt: '',
+          appUploadType: apkExternalUrlInput.trim() ? 'link' : 'uploaded',
+        });
+        setApkFeedback({
+          type: 'success',
+          text: 'আপলোড করা APK ফাইল সার্ভার থেকে ডিলিট করা হয়েছে।',
+        });
+      }
+    } catch {
+      setApkFeedback({
+        type: 'error',
+        text: 'APK ডিলিট করতে সমস্যা হয়েছে।',
+      });
+    }
+  };
+
+  const handleSaveAppSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    const externalUrl = apkExternalUrlInput.trim();
+    updateSettings({
+      appVersion: apkVersionInput.trim() || 'v1.0.0',
+      appDownloadsLabel: settingsForm.appDownloadsLabel || '১২হাজার+',
+      appPlayersLabel: settingsForm.appPlayersLabel || '৪হাজার+',
+      appSupportEmail: settingsForm.appSupportEmail || 'support@app.lgleaderbd.site',
+      appLocationLabel: settingsForm.appLocationLabel || 'Dhaka, Bangladesh',
+      ...(externalUrl && !serverApkInfo?.exists
+        ? { appApkUrl: externalUrl, appUploadType: 'link' as const }
+        : {}),
+    });
+    setApkFeedback({
+      type: 'success',
+      text: 'অ্যাপ ও ল্যান্ডিং পেজ সেটিংস সফলভাবে সেভ করা হয়েছে!',
+    });
+  };
 
   // Calculate pending counts
   const pendingDeposits = transactions.filter((t) => t.type === 'deposit' && t.status === 'pending');
@@ -527,8 +698,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           </div>
         )}
 
-        {/* The 6 Core Navigation Tabs strictly requested by user */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-1.5 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl">
+        {/* The 7 Core Navigation Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 p-1.5 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl">
           <button
             onClick={() => setActiveTab('tournaments')}
             className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
@@ -592,6 +763,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           >
             <BarChart2 className="w-4 h-4" />
             <span className="truncate">Result Management</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('app')}
+            className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer relative ${
+              activeTab === 'app'
+                ? 'bg-violet-500 text-white font-black shadow-lg shadow-violet-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Smartphone className="w-4 h-4" />
+            <span className="truncate">App (APK)</span>
+            {serverApkInfo?.exists && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400" title="APK Active" />
+            )}
           </button>
 
           <button
@@ -1399,7 +1585,245 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
         )}
 
         {/* ------------------------------------------------------------- */}
-        {/* MODULE 6: WEBSITE SETTINGS                                    */}
+        {/* MODULE 6: APP (APK UPLOAD & LANDING PAGE SETTINGS)            */}
+        {/* ------------------------------------------------------------- */}
+        {activeTab === 'app' && (
+          <div className="space-y-5 max-w-4xl mx-auto">
+            <div className="p-4 rounded-2xl bg-slate-900 border border-violet-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-extrabold text-base text-white flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-violet-400" />
+                  <span>App Management (APK ফাইল আপলোড ও ডাউনলোড কন্ট্রোল)</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  এখানে আপনি যে APK ফাইলটি আপলোড করবেন, ক্লায়েন্টরা ল্যান্ডিং পেজের &ldquo;অ্যাপ ডাউনলোড করুন&rdquo; বাটনে ক্লিক করলেই সেটি সরাসরি ডাউনলোড হয়ে যাবে।
+                </p>
+              </div>
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-200 text-xs font-bold shrink-0"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>ল্যান্ডিং পেজ দেখুন</span>
+              </a>
+            </div>
+
+            {apkFeedback && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs flex items-center gap-2 ${
+                  apkFeedback.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-600 text-emerald-200'
+                    : 'bg-red-950/80 border-red-600 text-red-200'
+                }`}
+              >
+                {apkFeedback.type === 'success' ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                )}
+                <span>{apkFeedback.text}</span>
+              </div>
+            )}
+
+            {/* Current Active APK Status */}
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-extrabold text-violet-300 uppercase tracking-wider">
+                    বর্তমান APK স্ট্যাটাস (Current Live App)
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    সার্ভারে আপলোড করা ফাইল অথবা এক্সটার্নাল লিংকের বর্তমান অবস্থা
+                  </p>
+                </div>
+
+                {serverApkInfo?.exists ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    APK লাইভ আছে (Server Hosted)
+                  </span>
+                ) : settingsForm.appApkUrl ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/15 border border-sky-500/40 text-sky-300 text-xs font-bold">
+                    External APK Link Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold">
+                    এখনো কোনো APK আপলোড করা হয়নি
+                  </span>
+                )}
+              </div>
+
+              {serverApkInfo?.exists && (
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1 text-xs">
+                    <div className="font-black text-white text-sm flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-violet-400" />
+                      <span>{serverApkInfo.fileName}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-slate-400 text-[11px]">
+                      <span>সাইজ: <strong className="text-slate-200">{formatFileSize(serverApkInfo.fileSize)}</strong></span>
+                      <span>ভার্সন: <strong className="text-violet-300">{serverApkInfo.version || 'v1.0.0'}</strong></span>
+                      {serverApkInfo.uploadedAt && (
+                        <span>আপলোড সময়: <strong className="text-slate-300">{serverApkInfo.uploadedAt}</strong></span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={`/api/download-apk?t=${Date.now()}`}
+                      download={serverApkInfo.fileName}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>টেস্ট ডাউনলোড</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleDeleteServerApk}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-950 hover:bg-red-900 border border-red-700/60 text-red-300 text-xs font-bold cursor-pointer transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>ডিলিট</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Direct APK File Upload Box */}
+              <div className="p-5 rounded-2xl border-2 border-dashed border-violet-500/40 bg-slate-950/70 hover:border-violet-400/70 transition-all text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center mx-auto text-violet-400">
+                  <Upload className="w-6 h-6" />
+                </div>
+
+                <div>
+                  <h5 className="text-sm font-black text-white">নতুন Android APK ফাইল আপলোড করুন</h5>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    সর্বোচ্চ সাইজ 250MB (.apk ফাইল)। আপলোড করলে পুরোনো APK অটোমেটিক রিপ্লেস হবে।
+                  </p>
+                </div>
+
+                <div className="max-w-xs mx-auto">
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1 text-left">
+                    অ্যাপ ভার্সন (Version Tag):
+                  </label>
+                  <input
+                    type="text"
+                    value={apkVersionInput}
+                    onChange={(e) => setApkVersionInput(e.target.value)}
+                    placeholder="যেমন: v1.0.5"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono text-center focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+
+                {apkUploading ? (
+                  <div className="max-w-md mx-auto space-y-2 pt-2">
+                    <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
+                      <div
+                        className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-150"
+                        style={{ width: `${apkUploadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs font-bold text-violet-300">
+                      APK আপলোড হচ্ছে... {apkUploadProgress}% (দয়া করে অপেক্ষা করুন)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="pt-1">
+                    <label className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black shadow-lg shadow-violet-600/30 cursor-pointer active:scale-95 transition-all">
+                      <Upload className="w-4 h-4" />
+                      <span>APK ফাইল সিলেক্ট ও আপলোড করুন (.apk)</span>
+                      <input
+                        type="file"
+                        accept=".apk,application/vnd.android.package-archive"
+                        onChange={handleApkFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Landing Page Stats & Optional External URL */}
+            <form onSubmit={handleSaveAppSettings} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+              <h4 className="text-xs font-extrabold text-sky-400 uppercase tracking-wider">
+                ল্যান্ডিং পেজ তথ্য ও বিকল্প এক্সটার্নাল APK লিংক
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    বিকল্প ডাইরেক্ট APK ডাউনলোড লিংক (External URL - ঐচ্ছিক):
+                  </label>
+                  <input
+                    type="url"
+                    value={apkExternalUrlInput}
+                    onChange={(e) => setApkExternalUrlInput(e.target.value)}
+                    placeholder="https://example.com/LG_LEADER_BD.apk (যদি সরাসরি ফাইল আপলোড না করেন)"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    নোট: সার্ভারে 직접 APK ফাইল আপলোড করা থাকলে সেটিই অগ্রাধিকার পাবে।
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">ডাউনলোড সংখ্যা টেক্সট:</label>
+                  <input
+                    type="text"
+                    value={settingsForm.appDownloadsLabel || '১২হাজার+'}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, appDownloadsLabel: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">রেগুলার প্লেয়ার সংখ্যা টেক্সট:</label>
+                  <input
+                    type="text"
+                    value={settingsForm.appPlayersLabel || '৪হাজার+'}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, appPlayersLabel: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">অ্যাপ সাপোর্ট ইমেইল:</label>
+                  <input
+                    type="email"
+                    value={settingsForm.appSupportEmail || 'support@app.lgleaderbd.site'}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, appSupportEmail: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">অফিস লোকেশন:</label>
+                  <input
+                    type="text"
+                    value={settingsForm.appLocationLabel || 'Dhaka, Bangladesh'}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, appLocationLabel: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-xs shadow-lg shadow-violet-600/20 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all"
+              >
+                <Save className="w-4 h-4" />
+                <span>App ও ল্যান্ডিং পেজ সেটিংস সেভ করুন</span>
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* MODULE 7: WEBSITE SETTINGS                                    */}
         {/* ------------------------------------------------------------- */}
         {activeTab === 'settings' && (
           <div className="space-y-4 max-w-4xl mx-auto">

@@ -13,6 +13,7 @@ import { WalletModal } from './components/WalletModal';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { WebLockScreen } from './components/WebLockScreen';
+import { LandingPage } from './components/LandingPage';
 
 const AppContent: React.FC = () => {
   const {
@@ -24,9 +25,13 @@ const AppContent: React.FC = () => {
     unreadNotificationCount,
   } = useTournament();
 
-  // Route state: checks whether path is '/admin'
+  // Route state: checks whether path is '/admin' or '/play'
   const [isAdminPath, setIsAdminPath] = useState<boolean>(() => {
     return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin');
+  });
+
+  const [showWebApp, setShowWebApp] = useState<boolean>(() => {
+    return window.location.pathname === '/play' || window.location.pathname.startsWith('/play');
   });
 
   // Web Lock Unlock State: stored in session & local storage
@@ -67,6 +72,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
       setIsAdminPath(window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin'));
+      setShowWebApp(window.location.pathname === '/play' || window.location.pathname.startsWith('/play'));
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -78,9 +84,18 @@ const AppContent: React.FC = () => {
     setIsAdminPath(true);
   };
 
+  const navigateToWebApp = () => {
+    window.history.pushState(null, '', '/play');
+    setIsAdminPath(false);
+    setShowWebApp(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const navigateToApp = () => {
     window.history.pushState(null, '', '/');
     setIsAdminPath(false);
+    setShowWebApp(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // If user requested domain/admin, show Admin Panel
@@ -99,6 +114,11 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Show App Download Landing Page on '/' unless user clicked "ওয়েবসাইট ভিজিট করুন" (/play)
+  if (!showWebApp) {
+    return <LandingPage onVisitWebsite={navigateToWebApp} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col items-center">
       {/* Mobile-first ergonomic container centered on large viewports */}
@@ -107,6 +127,7 @@ const AppContent: React.FC = () => {
         <Header
           onOpenWallet={() => handleOpenWallet('deposit')}
           onOpenAuth={() => handleRequireAuth()}
+          onBackToLanding={navigateToApp}
           currentTab={currentTab}
         />
 

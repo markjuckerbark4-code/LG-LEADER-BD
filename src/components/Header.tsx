@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useTournament } from '../context/TournamentContext';
-import { Bell, Wallet, ShieldCheck, Wifi, BatteryCharging, Signal, User } from 'lucide-react';
+import { Bell, Wallet, Wifi, BatteryCharging, Signal, User, Smartphone } from 'lucide-react';
 
 interface HeaderProps {
   onOpenWallet: () => void;
   onOpenAuth?: () => void;
+  onBackToLanding?: () => void;
   currentTab: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onOpenAuth }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onOpenAuth, onBackToLanding }) => {
   const { user, settings } = useTournament();
   const [timeStr, setTimeStr] = useState('09:58 PM');
 
@@ -63,8 +64,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWallet, onOpenAuth }) => {
           </div>
         </div>
 
-        {/* Right side actions: User Wallet Balance or Login Button */}
-        <div className="flex items-center gap-2">
+        {/* Right side actions: App landing shortcut + User Wallet Balance or Login Button */}
+        <div className="flex items-center gap-1.5">
+          {onBackToLanding && (
+            <button
+              onClick={onBackToLanding}
+              title="অ্যাপ ডাউনলোড পেজ"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-[11px] font-extrabold cursor-pointer active:scale-95 transition-all"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>App</span>
+            </button>
+          )}
           {user ? (
             <button
               onClick={onOpenWallet}

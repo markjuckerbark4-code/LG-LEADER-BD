@@ -141,6 +141,17 @@ export interface WebsiteSettings {
   webLockSubtitle?: string;
   // Admin Panel Security
   adminPassword?: string;
+  // Official Android App / APK Settings
+  appApkUrl?: string;
+  appApkFileName?: string;
+  appFileSize?: string;
+  appVersion?: string;
+  appUpdatedAt?: string;
+  appUploadType?: 'uploaded' | 'link';
+  appDownloadsLabel?: string;
+  appPlayersLabel?: string;
+  appSupportEmail?: string;
+  appLocationLabel?: string;
 }
 
 export interface AppNotification {

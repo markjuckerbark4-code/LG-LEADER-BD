@@ -464,6 +464,16 @@ export const INITIAL_SETTINGS = {
   webLockTitle: 'LG LEADER BD - সিকিউরিটি লক',
   webLockSubtitle: 'ওয়েবসাইটটিতে প্রবেশ করতে সিকিউরিটি পিন দিন',
   adminPassword: 'mahin44@@',
+  appApkUrl: '',
+  appApkFileName: 'LG_LEADER_BD.apk',
+  appFileSize: '',
+  appVersion: 'v1.0.0',
+  appUpdatedAt: '',
+  appUploadType: 'uploaded' as const,
+  appDownloadsLabel: '১২হাজার+',
+  appPlayersLabel: '৪হাজার+',
+  appSupportEmail: 'support@app.lgleaderbd.site',
+  appLocationLabel: 'Dhaka, Bangladesh',
 };
 
 export const INITIAL_PLAYERS: UserProfile[] = [];
