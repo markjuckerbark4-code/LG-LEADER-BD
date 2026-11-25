@@ -23,6 +23,12 @@ import {
 } from 'lucide-react';
 import { useTournament } from '../context/TournamentContext';
 import appLogo from '../assets/images/lg_leader_logo_1795588158182.jpg';
+import {
+  getFirestoreApkMeta,
+  downloadApkFromFirestore,
+  formatApkBytes,
+  FirestoreApkMeta,
+} from '../utils/apkStorage';
 
 interface LandingPageProps {
   onVisitWebsite: () => void;
@@ -41,6 +47,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
   const { settings } = useTournament();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [serverApkInfo, setServerApkInfo] = useState<ServerApkInfo | null>(null);
+  const [firestoreApkMeta, setFirestoreApkMeta] = useState<FirestoreApkMeta | null>(null);
+  const [downloadingApk, setDownloadingApk] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadNotice, setDownloadNotice] = useState<{
     type: 'success' | 'info';
     message: string;
@@ -48,6 +57,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
 
   useEffect(() => {
     let active = true;
+
+    getFirestoreApkMeta()
+      .then((meta) => {
+        if (active) setFirestoreApkMeta(meta);
+      })
+      .catch(() => {
+        if (active) setFirestoreApkMeta(null);
+      });
+
     fetch('/api/apk-info')
       .then((res) => (res.ok ? res.json() : { exists: false }))
       .then((data: ServerApkInfo) => {
@@ -56,22 +74,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
       .catch(() => {
         if (active) setServerApkInfo({ exists: false });
       });
+
     return () => {
       active = false;
     };
-  }, [settings.appUpdatedAt, settings.appApkUrl]);
+  }, [settings.appUpdatedAt, settings.appApkUrl, settings.appApkBatchId]);
 
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes || bytes <= 0) return '';
-    const mb = bytes / (1024 * 1024);
-    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
-  };
+  const formatFileSize = (bytes?: number) => (bytes ? formatApkBytes(bytes) : '');
 
-  const handleDownloadApk = () => {
+  const handleDownloadApk = async () => {
+    if (downloadingApk) return;
     setDownloadNotice(null);
 
-    // Priority 1: Server-hosted APK uploaded by admin
-    if (serverApkInfo?.exists) {
+    // Priority 1: Express server-hosted APK if present & matching current upload
+    if (
+      serverApkInfo?.exists &&
+      (!firestoreApkMeta || serverApkInfo.fileName === firestoreApkMeta.fileName)
+    ) {
       const fileName = serverApkInfo.fileName || settings.appApkFileName || 'LG_LEADER_BD.apk';
       const link = document.createElement('a');
       link.href = `/api/download-apk?t=${Date.now()}`;
@@ -87,8 +106,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
       return;
     }
 
-    // Priority 2: External direct APK link set by admin
-    if (settings.appApkUrl && settings.appApkUrl.trim() && settings.appApkUrl !== '/api/download-apk') {
+    // Priority 2: Firestore cloud-hosted APK (works on both dev & static shared deployments)
+    if (firestoreApkMeta) {
+      setDownloadingApk(true);
+      setDownloadProgress(1);
+      try {
+        await downloadApkFromFirestore(firestoreApkMeta, (percent) =>
+          setDownloadProgress(percent)
+        );
+        setDownloadNotice({
+          type: 'success',
+          message: `ডাউনলোড সম্পন্ন হয়েছে! (${firestoreApkMeta.fileName} • ${firestoreApkMeta.fileSizeFormatted})। আপনার ফোনের Downloads ফোল্ডার থেকে APK ফাইলটি ইনস্টল করুন।`,
+        });
+      } catch (err: any) {
+        setDownloadNotice({
+          type: 'info',
+          message: err?.message || 'APK ডাউনলোড করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+        });
+      } finally {
+        setDownloadingApk(false);
+      }
+      return;
+    }
+
+    // Priority 3: External direct APK link set by admin
+    if (
+      settings.appApkUrl &&
+      settings.appApkUrl.trim() &&
+      settings.appApkUrl !== '/api/download-apk' &&
+      !settings.appApkUrl.startsWith('firestore://')
+    ) {
       const targetUrl = settings.appApkUrl.trim();
       const fileName = settings.appApkFileName || 'LG_LEADER_BD.apk';
       const link = document.createElement('a');
@@ -141,8 +188,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
     },
   ];
 
-  const versionDisplay = serverApkInfo?.version || settings.appVersion;
-  const sizeDisplay = serverApkInfo?.fileSize
+  const versionDisplay = firestoreApkMeta?.version || serverApkInfo?.version || settings.appVersion;
+  const sizeDisplay = firestoreApkMeta?.fileSizeFormatted
+    ? firestoreApkMeta.fileSizeFormatted
+    : serverApkInfo?.fileSize
     ? formatFileSize(serverApkInfo.fileSize)
     : settings.appFileSize || '';
 
@@ -231,10 +280,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
             <button
               type="button"
               onClick={handleDownloadApk}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-400 hover:via-purple-400 hover:to-fuchsia-400 text-white font-black text-base shadow-xl shadow-purple-600/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+              disabled={downloadingApk}
+              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-400 hover:via-purple-400 hover:to-fuchsia-400 disabled:opacity-80 text-white font-black text-base shadow-xl shadow-purple-600/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
-              <Download className="w-5 h-5" />
-              <span>অ্যাপ ডাউনলোড করুন</span>
+              <Download className={`w-5 h-5 ${downloadingApk ? 'animate-bounce' : ''}`} />
+              <span>
+                {downloadingApk
+                  ? `ডাউনলোড হচ্ছে... ${downloadProgress}%`
+                  : 'অ্যাপ ডাউনলোড করুন'}
+              </span>
             </button>
 
             {/* Secondary CTA right below: Visit Website */}
@@ -479,10 +533,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onVisitWebsite }) => {
           <button
             type="button"
             onClick={handleDownloadApk}
-            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-400 hover:to-fuchsia-400 text-white font-black text-base shadow-xl shadow-purple-600/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+            disabled={downloadingApk}
+            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-400 hover:to-fuchsia-400 disabled:opacity-80 text-white font-black text-base shadow-xl shadow-purple-600/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Download className="w-5 h-5" />
-            <span>Download App</span>
+            <Download className={`w-5 h-5 ${downloadingApk ? 'animate-bounce' : ''}`} />
+            <span>
+              {downloadingApk
+                ? `ডাউনলোড হচ্ছে... ${downloadProgress}%`
+                : 'Download App'}
+            </span>
           </button>
 
           <button

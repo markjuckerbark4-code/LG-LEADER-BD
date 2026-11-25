@@ -143,6 +143,8 @@ export interface WebsiteSettings {
   appVersion?: string;
   appUpdatedAt?: string;
   appUploadType?: 'uploaded' | 'link';
+  appApkBatchId?: string;
+  appApkChunkCount?: number;
   appDownloadsLabel?: string;
   appPlayersLabel?: string;
   appSupportEmail?: string;

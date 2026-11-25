@@ -75,6 +75,32 @@
         "noticeText": { "type": "string" }
       },
       "required": ["siteName"]
+    },
+    "ApkMeta": {
+      "title": "ApkMeta",
+      "description": "Metadata for the uploaded Android APK file",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "number" },
+        "fileSizeFormatted": { "type": "string" },
+        "version": { "type": "string" },
+        "chunkCount": { "type": "number" },
+        "uploadedAt": { "type": "string" }
+      },
+      "required": ["batchId", "fileName", "fileSize", "chunkCount"]
+    },
+    "ApkChunk": {
+      "title": "ApkChunk",
+      "description": "Base64-encoded binary chunk of an uploaded Android APK",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string" },
+        "index": { "type": "number" },
+        "data": { "type": "string" }
+      },
+      "required": ["batchId", "index", "data"]
     }
   },
   "firestore": {
@@ -93,6 +119,14 @@
     "/settings/{settingId}": {
       "schema": { "$ref": "#/entities/WebsiteSettings" },
       "description": "Site global configuration and hotlines"
+    },
+    "/apk_meta/{docId}": {
+      "schema": { "$ref": "#/entities/ApkMeta" },
+      "description": "Metadata describing the active uploaded Android APK"
+    },
+    "/apk_chunks/{chunkId}": {
+      "schema": { "$ref": "#/entities/ApkChunk" },
+      "description": "Chunked APK payload documents enabling downloads across static and dynamic deployments"
     }
   }
 }
