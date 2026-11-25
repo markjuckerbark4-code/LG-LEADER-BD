@@ -12,7 +12,6 @@ import { FloatingSupport } from './components/FloatingSupport';
 import { WalletModal } from './components/WalletModal';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/AuthModal';
-import { WebLockScreen } from './components/WebLockScreen';
 import { LandingPage } from './components/LandingPage';
 
 const AppContent: React.FC = () => {
@@ -32,18 +31,6 @@ const AppContent: React.FC = () => {
 
   const [showWebApp, setShowWebApp] = useState<boolean>(() => {
     return window.location.pathname === '/play' || window.location.pathname.startsWith('/play');
-  });
-
-  // Web Lock Unlock State: stored in session & local storage
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
-    try {
-      return (
-        sessionStorage.getItem('lgleader_web_unlocked') === 'true' ||
-        localStorage.getItem('lgleader_web_unlocked') === 'true'
-      );
-    } catch {
-      return false;
-    }
   });
 
   const [currentTab, setCurrentTab] = useState<TabType>('play');
@@ -79,11 +66,6 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const navigateToAdmin = () => {
-    window.history.pushState(null, '', '/admin');
-    setIsAdminPath(true);
-  };
-
   const navigateToWebApp = () => {
     window.history.pushState(null, '', '/play');
     setIsAdminPath(false);
@@ -101,17 +83,6 @@ const AppContent: React.FC = () => {
   // If user requested domain/admin, show Admin Panel
   if (isAdminPath) {
     return <AdminPanel onBackToApp={navigateToApp} />;
-  }
-
-  // Web Lock Check: When enabled in settings and visitor hasn't entered the security PIN
-  const isWebLockActive = settings?.isWebLockEnabled !== false;
-  if (isWebLockActive && !isUnlocked) {
-    return (
-      <WebLockScreen
-        onUnlock={() => setIsUnlocked(true)}
-        onAdminAccess={navigateToAdmin}
-      />
-    );
   }
 
   // Show App Download Landing Page on '/' unless user clicked "ওয়েবসাইট ভিজিট করুন" (/play)

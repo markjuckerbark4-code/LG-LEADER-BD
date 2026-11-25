@@ -17,7 +17,6 @@ import {
   Share2,
   Copy,
   Check,
-  Lock,
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -110,34 +109,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <div>
                 <span className="font-extrabold text-sm text-slate-800">Developer Profile</span>
                 <p className="text-[11px] text-slate-500">অ্যাপ ডেভেলপার ও অফিসিয়াল তথ্য</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
-          </button>
-
-          {/* Web Lock Quick Test */}
-          <button
-            onClick={() => {
-              try {
-                sessionStorage.removeItem('lgleader_web_unlocked');
-                localStorage.removeItem('lgleader_web_unlocked');
-                window.location.reload();
-              } catch {
-                window.location.reload();
-              }
-            }}
-            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 shadow-sm hover:bg-amber-100/70 transition-all cursor-pointer text-left"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
-                  <span>Web Lock</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 font-bold">সিকিউরিটি</span>
-                </span>
-                <p className="text-[11px] text-slate-500">ওয়েবসাইটটি তাৎক্ষণিক পিন দিয়ে লক করুন</p>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -409,35 +380,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
-        {/* 8. Web Lock Button */}
-        <button
-          onClick={() => {
-            try {
-              sessionStorage.removeItem('lgleader_web_unlocked');
-              localStorage.removeItem('lgleader_web_unlocked');
-              window.location.reload();
-            } catch {
-              window.location.reload();
-            }
-          }}
-          className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 shadow-sm hover:bg-amber-100/70 transition-all cursor-pointer text-left group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Lock className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
-                <span>Web Lock</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 font-bold">সিকিউরিটি</span>
-              </span>
-              <p className="text-[11px] text-slate-500">ওয়েবসাইটটি তাৎক্ষণিক পিন দিয়ে লক করুন</p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-600 transition-colors" />
-        </button>
-
-        {/* 9. Logout Button matching Screenshot 3 blue pill */}
+        {/* 8. Logout Button matching Screenshot 3 blue pill */}
         <div className="pt-4">
           <button
             onClick={() => {

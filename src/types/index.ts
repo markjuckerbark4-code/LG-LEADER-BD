@@ -134,11 +134,6 @@ export interface WebsiteSettings {
   maxDeposit?: number;
   minWithdraw?: number;
   maxWithdrawPerDay?: number;
-  // Web Lock Security
-  isWebLockEnabled?: boolean;
-  webLockPin?: string;
-  webLockTitle?: string;
-  webLockSubtitle?: string;
   // Admin Panel Security
   adminPassword?: string;
   // Official Android App / APK Settings
